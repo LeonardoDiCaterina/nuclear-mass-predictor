@@ -1,6 +1,12 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
-from .nodes import scale_features, split_historical_data
+from .nodes import (
+    evaluate_models,
+    scale_features,
+    split_historical_data,
+    train_jax_model,
+    train_pytorch_model,
+)
 
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -17,6 +23,24 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=["X_train", "X_test"],
                 outputs=["X_train_scaled", "X_test_scaled", "scaler_params"],
                 name="scale_features_node",
+            ),
+            node(
+                func=train_pytorch_model,
+                inputs=["X_train_scaled", "y_train", "params:zeng_2022_training"],
+                outputs="pytorch_model",
+                name="train_pytorch_model_node",
+            ),
+            node(
+                func=train_jax_model,
+                inputs=["X_train_scaled", "y_train", "params:zeng_2022_training"],
+                outputs="jax_model",
+                name="train_jax_model_node",
+            ),
+            node(
+                func=evaluate_models,
+                inputs=["pytorch_model", "jax_model", "X_test_scaled", "y_test"],
+                outputs="zeng_2022.evaluation_metrics",
+                name="evaluate_models_node",
             ),
         ]
     )
