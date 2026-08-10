@@ -2,6 +2,7 @@ from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import create_residual_plots, test_heteroscedasticity
 
+
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
         [
