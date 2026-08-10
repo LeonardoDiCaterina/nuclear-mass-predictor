@@ -23,17 +23,27 @@ def fetch_iaea_data(api_params: Dict[str, Any]) -> pd.DataFrame:
     """
     Node 1: Fetches ground states data from the IAEA API.
     Uses headers to avoid 403 Forbidden errors.
+    Cleans and subsets the data for the pipeline.
     """
     url = api_params["url"]
     headers = api_params["headers"]
 
     response = requests.get(url, headers=headers)
-    response.raise_for_status()
+    response.raise_for_status() 
 
     csv_data = io.StringIO(response.text)
+    df = pd.read_csv(csv_data)
 
-    return pd.read_csv(csv_data)
+    # Clean the dataframe to match our Pandera schema
+    df = df.rename(columns={"binding": "binding_energy"})
+    
+    # Keep only the features we need
+    df = df[["z", "n", "binding_energy"]]
+    
+    # Drop rows where binding energy might be missing
+    df = df.dropna(subset=["binding_energy"])
 
+    return df
 
 @pa.check_types
 def create_engineered_features(
