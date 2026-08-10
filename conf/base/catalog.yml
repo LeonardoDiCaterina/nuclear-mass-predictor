@@ -40,6 +40,10 @@ zeng_2022.jax_model:
   type: pickle.PickleDataset
   filepath: data/06_models/zeng_2022/jax_ann7.pkl
 
+zeng_2022.unified_test_predictions:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/zeng_2022/unified_predictions.parquet
+
 zeng_2022.evaluation_metrics:
   type: tracking.MetricsDataset
   filepath: data/08_reporting/zeng_2022/metrics.json

@@ -6,6 +6,7 @@ from .nodes import (
     split_historical_data,
     train_jax_model,
     train_pytorch_model,
+    compute_summary_metrics,
 )
 
 
@@ -38,9 +39,16 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=evaluate_models,
-                inputs=["pytorch_model", "jax_model", "X_test_scaled", "y_test"],
-                outputs="zeng_2022.evaluation_metrics",
+                inputs=["pytorch_model", "jax_model", "X_test_scaled", "y_test", "X_test"],
+                outputs="zeng_2022.unified_test_predictions", # Outputs the rich DataFrame
                 name="evaluate_models_node",
             ),
-        ]
+            node(
+                func=compute_summary_metrics,
+                inputs="zeng_2022.unified_test_predictions",  # Consumes the rich DataFrame
+                outputs="zeng_2022.evaluation_metrics",       # Outputs the {str: float} dict
+                name="compute_summary_metrics_node",
+            ),
+
+       ]
     )

@@ -160,7 +160,45 @@ def train_jax_model(
     return {'params': params_tree}
 
 
+from nuclear_mass_predictor.schemas.reporting_schema import UnifiedPredictionSchema
+
 def evaluate_models(
+    pytorch_model: nn.Module,
+    jax_params: dict[str, Any],
+    X_test_scaled: np.ndarray,
+    y_test: pd.Series,
+    X_test_raw: pd.DataFrame
+) -> pd.DataFrame:
+
+    # 1. Generate PyTorch Predictions
+    pytorch_model.eval()
+    with torch.no_grad():
+        X_test_torch = torch.tensor(X_test_scaled, dtype=torch.float32)
+        pt_preds = pytorch_model(X_test_torch).numpy().flatten()
+
+    # 2. Generate JAX Predictions
+    jax_model = jax_NuclearANN7()
+    jax_preds = jax_model.apply(jax_params, jnp.array(X_test_scaled)).flatten()
+
+    # 3. Standardize into long format
+    results = []
+    y_true = y_test.values
+
+    for name, framework, preds in [
+        ("ann7_baseline", "pytorch", pt_preds),
+        ("ann7_baseline", "jax", jax_preds)
+    ]:
+        df = X_test_raw.copy()
+        df["binding_energy_true"] = y_true
+        df["prediction"] = preds
+        df["residual"] = df["binding_energy_true"] - df["prediction"]
+        df["model_name"] = name
+        df["framework"] = framework
+        results.append(df)
+
+    return UnifiedPredictionSchema.validate(pd.concat(results, ignore_index=True))
+
+def deprecated_evaluate_models(
     pytorch_model: nn.Module,
     jax_params: dict[str, Any],
     X_test_scaled: np.ndarray,
@@ -188,5 +226,25 @@ def evaluate_models(
         "pytorch_test_rmsd_mev": pt_rmsd,
         "jax_test_rmsd_mev": jax_rmsd
     }
+
+    return metrics
+
+
+def compute_summary_metrics(unified_preds: pd.DataFrame) -> dict[str, float]:
+    """
+    Consumes the unified long-format predictions and computes scalar summary
+    metrics (e.g., RMSD) for native Kedro metric tracking.
+    """
+    metrics = {}
+
+    # Loop over each framework present in the unified dataframe
+    for fw in unified_preds["framework"].unique():
+        fw_data = unified_preds[unified_preds["framework"] == fw]
+
+        rmsd = float(np.sqrt(np.mean(fw_data["residual"] ** 2)))
+        mae = float(np.mean(np.abs(fw_data["residual"])))
+
+        metrics[f"{fw}_test_rmsd_mev"] = rmsd
+        metrics[f"{fw}_test_mae_mev"] = mae
 
     return metrics
