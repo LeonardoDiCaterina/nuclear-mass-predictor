@@ -75,3 +75,33 @@ def test_heteroscedasticity(predictions_df: pd.DataFrame) -> dict[str, float]:
         results[f"{fw}_spearman_pvalue_Z"] = float(p_z)
         
     return results
+
+def create_loss_curves_plot(pytorch_loss: pd.DataFrame, jax_loss: pd.DataFrame) -> plt.Figure:
+    """
+    Creates a side-by-side or combined convergence plot comparing
+    PyTorch and JAX epoch-by-epoch MAE loss.
+    """
+    # Combine the two loss dataframes
+    combined_loss = pd.concat([pytorch_loss, jax_loss], ignore_index=True)
+
+    sns.set_theme(style="whitegrid", context="paper", font_scale=1.2)
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    sns.lineplot(
+        data=combined_loss,
+        x="epoch",
+        y="loss",
+        hue="framework",
+        linewidth=2,
+        ax=ax
+    )
+
+    ax.set_title("Training Loss Convergence (ANN7)")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("Mean Absolute Error (MeV)")
+
+    # Use a logarithmic scale if loss spans orders of magnitude during early epochs
+    ax.set_yscale("log")
+
+    plt.tight_layout()
+    return fig

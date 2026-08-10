@@ -1,6 +1,6 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
-from .nodes import create_residual_plots, test_heteroscedasticity
+from .nodes import create_residual_plots, test_heteroscedasticity, create_loss_curves_plot
 
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -17,6 +17,12 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs="zeng_2022.unified_test_predictions",
                 outputs="zeng_2022.heteroscedasticity_metrics",
                 name="test_heteroscedasticity_node",
+            ),
+            node(
+                func=create_loss_curves_plot,
+                inputs=["pytorch_loss_history", "jax_loss_history"],
+                outputs="zeng_2022.loss_convergence_plot",
+                name="create_loss_curves_plot_node",
             )
         ]
     )
