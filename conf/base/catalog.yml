@@ -10,3 +10,36 @@ iaea_raw_data:
 primary_features:
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/primary_features.parquet
+
+  
+zeng_2022.X_train:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/zeng_2022/X_train.parquet
+
+zeng_2022.X_test:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/zeng_2022/X_test.parquet
+
+zeng_2022.y_train:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/zeng_2022/y_train.parquet
+
+zeng_2022.y_test:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/zeng_2022/y_test.parquet
+
+zeng_2022.scaler_params:
+  type: yaml.YAMLDataset
+  filepath: data/06_models/zeng_2022/scaler_params.yml
+
+zeng_2022.pytorch_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/zeng_2022/pytorch_ann7.pkl
+
+zeng_2022.jax_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/zeng_2022/jax_ann7.pkl
+
+zeng_2022.evaluation_metrics:
+  type: tracking.MetricsDataset
+  filepath: data/08_reporting/zeng_2022/metrics.json

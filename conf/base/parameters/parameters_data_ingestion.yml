@@ -12,7 +12,3 @@ iaea_api:
 physics_constants:
   stable_half_life_threshold_years: 1000
 
-ws4_parameters:
-  kappa: 1.139  # Example WS4 surface asymmetry coefficient
-  xi: 1.250     # Example WS4 isospin coefficient
-  fs: 1.0       # Example scaling factor
