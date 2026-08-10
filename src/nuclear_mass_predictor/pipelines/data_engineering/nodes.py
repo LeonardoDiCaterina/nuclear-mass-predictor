@@ -5,7 +5,7 @@ generated using Kedro 0.19.15
 
 
 import io
-from typing import Any, Dict
+from typing import Any
 
 import pandas as pd
 import pandera.pandas as pa
@@ -19,7 +19,7 @@ from nuclear_mass_predictor.utils.physics_core import (
 )
 
 
-def fetch_iaea_data(api_params: Dict[str, Any]) -> pd.DataFrame:
+def fetch_iaea_data(api_params: dict[str, Any]) -> pd.DataFrame:
     """
     Node 1: Fetches ground states data from the IAEA API.
     Uses headers to avoid 403 Forbidden errors.
@@ -48,7 +48,7 @@ def fetch_iaea_data(api_params: Dict[str, Any]) -> pd.DataFrame:
 @pa.check_types
 def create_engineered_features(
     raw_data: pa.typing.DataFrame[RawNuclearSchema],
-    ws4_params: Dict[str, Any]
+    ws4_params: dict[str, Any]
 ) -> pd.DataFrame:
     """
     Node 2: Takes the validated raw data and calculates the physical priors.

@@ -1,16 +1,24 @@
-"""Project pipelines."""
-from __future__ import annotations
-
-from kedro.framework.project import find_pipelines
 from kedro.pipeline import Pipeline
+
+from nuclear_mass_predictor.pipelines.data_engineering.pipeline import (
+    create_pipeline as de_pipeline,
+)
+from nuclear_mass_predictor.pipelines.papers.zeng_2022.pipeline import (
+    create_pipeline as zeng_2022_pipeline,
+)
 
 
 def register_pipelines() -> dict[str, Pipeline]:
     """Register the project's pipelines.
 
     Returns:
-        A mapping from pipeline names to ``Pipeline`` objects.
+        A mapping from pipeline names to corresponding Pipeline objects.
     """
-    pipelines = find_pipelines()
-    pipelines["__default__"] = sum(pipelines.values())
-    return pipelines
+    de = de_pipeline()
+    zeng = zeng_2022_pipeline()
+
+    return {
+        "data_engineering": de,
+        "zeng_2022": de + zeng,  # Chains ingestion/engineering + zeng_2022 splitting/scaling
+        "__default__": de + zeng,
+    }
