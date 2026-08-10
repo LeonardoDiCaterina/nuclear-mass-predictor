@@ -1,0 +1,13 @@
+# This is a boilerplate parameters config generated for pipeline 'data_engineering'
+# using Kedro 0.19.15.
+#
+# Documentation for this file format can be found in "Parameters"
+# Link: https://docs.kedro.org/en/0.19.15/configuration/parameters.html
+
+iaea_api:
+  url: "https://www-nds.iaea.org/relnsd/v0/data?fields=ground_states&nuclides=all"
+  headers:
+    User-Agent: "Mozilla/5.0 (Data Engineering Portfolio Project)"
+
+physics_constants:
+  stable_half_life_threshold_years: 1000

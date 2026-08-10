@@ -7,8 +7,18 @@ requires-python = ">=3.9"
 name = "nuclear_mass_predictor"
 readme = "README.md"
 dynamic = [ "version",]
-dependencies = [ "ipython>=8.10", "jupyterlab>=3.0", "notebook", "kedro~=0.19.15",]
-
+dependencies = [
+    "kedro~=0.19.0",
+    "kedro-datasets[api,pandas.parquet,pandas.csv]~=3.0",
+    "pandas>=2.0.0",
+    "requests>=2.28.0",
+    "torch>=2.0.0",
+    "jax[cpu]>=0.4.0",
+    "flax>=0.7.0",
+    "scikit-learn>=1.0.0",
+    "pandera>=0.17.0",
+    "pytest>=7.0.0"
+]
 [project.scripts]
 nuclear-mass-predictor = "nuclear_mass_predictor.__main__:main"
 
@@ -28,3 +38,6 @@ attr = "nuclear_mass_predictor.__version__"
 [tool.setuptools.packages.find]
 where = [ "src",]
 namespaces = false
+
+[tool.kedro_telemetry]
+project_id = "ea161c2167d14009b9ac7d2f9c3e066f"
