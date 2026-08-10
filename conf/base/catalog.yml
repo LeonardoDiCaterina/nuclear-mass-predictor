@@ -55,3 +55,11 @@ zeng_2022.residual_plots:
 zeng_2022.heteroscedasticity_metrics:
   type: tracking.MetricsDataset
   filepath: data/08_reporting/zeng_2022/heteroscedasticity_metrics.json
+
+pytorch_loss_history:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/zeng_2022/pytorch_loss_history.parquet
+
+jax_loss_history:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/zeng_2022/jax_loss_history.parquet

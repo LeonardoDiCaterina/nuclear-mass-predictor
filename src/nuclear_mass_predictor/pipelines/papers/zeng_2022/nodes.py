@@ -65,6 +65,55 @@ def train_pytorch_model(
     X_train_scaled: np.ndarray,
     y_train: pd.Series,
     params: dict[str, Any]
+) -> tuple[nn.Module, pd.DataFrame]:
+    """
+    Trains the PyTorch ANN7 model and tracks epoch-by-epoch MAE loss.
+    Returns a tuple of (model, loss_history_dataframe).
+    """
+    lr = params.get("learning_rate", 0.0001)
+    beta1 = params.get("beta1", 0.9)
+    beta2 = params.get("beta2", 0.999)
+    epochs = params.get("epochs", 3000)
+    batch_size = params.get("batch_size", 64)
+
+    X_tensor = torch.tensor(X_train_scaled, dtype=torch.float32)
+    y_tensor = torch.tensor(y_train.values, dtype=torch.float32).unsqueeze(1)
+    
+    dataset = TensorDataset(X_tensor, y_tensor)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    model = torch_NuclearANN7()
+    model.train()
+    
+    criterion = nn.L1Loss()  
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(beta1, beta2))
+
+    epoch_losses = []
+
+    for epoch in range(epochs):
+        batch_losses = []
+        for batch_x, batch_y in dataloader:
+            optimizer.zero_grad()
+            predictions = model(batch_x)
+            loss = criterion(predictions, batch_y)
+            loss.backward()
+            optimizer.step()
+            batch_losses.append(loss.item())
+            
+        epoch_losses.append(np.mean(batch_losses))
+
+    # Compile the loss history into a standardized DataFrame
+    loss_df = pd.DataFrame({
+        "epoch": range(epochs),
+        "framework": "pytorch",
+        "loss": epoch_losses
+    })
+
+    return model, loss_df
+def deprecated_1_train_pytorch_model(
+    X_train_scaled: np.ndarray,
+    y_train: pd.Series,
+    params: dict[str, Any]
 ) -> nn.Module:
     """
     Trains the PyTorch ANN7 model using the historical training set,
@@ -108,14 +157,145 @@ def train_pytorch_model(
 
 
 
+from typing import Any
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
+import pandas as pd
 
 from nuclear_mass_predictor.models.jax_ann import NuclearANN7 as jax_NuclearANN7
 
 
 def train_jax_model(
+    X_train_scaled: np.ndarray,
+    y_train: pd.Series,
+    params: dict[str, Any]
+) -> tuple[dict[str, Any], pd.DataFrame]:
+    """
+    Trains the JAX ANN7 model with mini-batching and tracks MAE loss.
+    Returns a tuple of (params_tree, loss_history_dataframe).
+    """
+    lr = params.get("learning_rate", 0.0001)
+    epochs = params.get("epochs", 3000)
+    batch_size = params.get("batch_size", 64)
+
+    X_jnp = jnp.array(X_train_scaled)
+    y_jnp = jnp.array(y_train.values).reshape(-1, 1)
+    num_samples = X_jnp.shape[0]
+
+    model = jax_NuclearANN7()
+    rng = jax.random.PRNGKey(0)
+    rng, init_rng = jax.random.split(rng)
+    variables = model.init(init_rng, X_jnp)
+
+    optimizer = optax.adam(learning_rate=lr, b1=0.9, b2=0.999)
+    opt_state = optimizer.init(variables['params'])
+
+    @jax.jit
+    def loss_fn(params_tree, x, y):
+        preds = model.apply({'params': params_tree}, x)
+        return jnp.mean(jnp.abs(preds - y))
+
+    @jax.jit
+    def step_fn(params_tree, state, x, y):
+        loss, grads = jax.value_and_grad(loss_fn)(params_tree, x, y)
+        updates, new_state = optimizer.update(grads, state, params_tree)
+        new_params = optax.apply_updates(params_tree, updates)
+        return new_params, new_state, loss
+
+    params_tree = variables['params']
+    epoch_losses = []
+
+    for epoch in range(epochs):
+        rng, shuffle_rng = jax.random.split(rng)
+        perms = jax.random.permutation(shuffle_rng, num_samples)
+        X_shuffled = X_jnp[perms]
+        y_shuffled = y_jnp[perms]
+
+        batch_losses = []
+        for i in range(0, num_samples, batch_size):
+            batch_x = X_shuffled[i : i + batch_size]
+            batch_y = y_shuffled[i : i + batch_size]
+            params_tree, opt_state, loss = step_fn(params_tree, opt_state, batch_x, batch_y)
+            batch_losses.append(float(loss))
+
+        epoch_losses.append(np.mean(batch_losses))
+
+    # Compile the loss history into a standardized DataFrame
+    loss_df = pd.DataFrame({
+        "epoch": range(epochs),
+        "framework": "jax",
+        "loss": epoch_losses
+    })
+
+    return {'params': params_tree}, loss_df
+
+def deprecated_1_train_jax_model(
+    X_train_scaled: np.ndarray,
+    y_train: pd.Series,
+    params: dict[str, Any]
+) -> dict[str, Any]:
+    """
+    Trains the Flax/JAX ANN7 model using Optax for optimization and MAE loss.
+    Implements random shuffling and mini-batching to match PyTorch dynamics.
+    Returns the serialized parameter tree.
+    """
+    lr = params.get("learning_rate", 0.0001)
+    epochs = params.get("epochs", 3000)
+    batch_size = params.get("batch_size", 64)
+
+    X_jnp = jnp.array(X_train_scaled)
+    y_jnp = jnp.array(y_train.values).reshape(-1, 1)
+    num_samples = X_jnp.shape[0]
+
+    model = jax_NuclearANN7()
+    
+    # JAX requires explicit state management for random seeds
+    rng = jax.random.PRNGKey(0)
+    rng, init_rng = jax.random.split(rng)
+
+    # Initialize parameters
+    variables = model.init(init_rng, X_jnp)
+
+    # Optimizer configuration matching PyTorch settings
+    optimizer = optax.adam(learning_rate=lr, b1=0.9, b2=0.999)
+    opt_state = optimizer.init(variables['params'])
+
+    @jax.jit
+    def loss_fn(params_tree, x, y):
+        preds = model.apply({'params': params_tree}, x)
+        return jnp.mean(jnp.abs(preds - y))  # MAE loss
+
+    @jax.jit
+    def step_fn(params_tree, state, x, y):
+        loss, grads = jax.value_and_grad(loss_fn)(params_tree, x, y)
+        updates, new_state = optimizer.update(grads, state, params_tree)
+        new_params = optax.apply_updates(params_tree, updates)
+        return new_params, new_state, loss
+
+    # Training loop
+    params_tree = variables['params']
+    
+    for epoch in range(epochs):
+        # 1. Shuffle data at the start of each epoch
+        rng, shuffle_rng = jax.random.split(rng)
+        perms = jax.random.permutation(shuffle_rng, num_samples)
+        X_shuffled = X_jnp[perms]
+        y_shuffled = y_jnp[perms]
+        
+        # 2. Mini-batch iteration
+        for i in range(0, num_samples, batch_size):
+            batch_x = X_shuffled[i : i + batch_size]
+            batch_y = y_shuffled[i : i + batch_size]
+            
+            params_tree, opt_state, _ = step_fn(params_tree, opt_state, batch_x, batch_y)
+
+    return {'params': params_tree}
+
+
+def deprecated_train_jax_model(
     X_train_scaled: np.ndarray,
     y_train: pd.Series,
     params: dict[str, Any]

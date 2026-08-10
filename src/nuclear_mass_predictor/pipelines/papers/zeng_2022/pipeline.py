@@ -28,13 +28,13 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 func=train_pytorch_model,
                 inputs=["X_train_scaled", "y_train", "params:zeng_2022_training"],
-                outputs="pytorch_model",
+                outputs=["pytorch_model","pytorch_loss_history"],
                 name="train_pytorch_model_node",
             ),
             node(
                 func=train_jax_model,
                 inputs=["X_train_scaled", "y_train", "params:zeng_2022_training"],
-                outputs="jax_model",
+                outputs=["jax_model","jax_loss_history"],
                 name="train_jax_model_node",
             ),
             node(

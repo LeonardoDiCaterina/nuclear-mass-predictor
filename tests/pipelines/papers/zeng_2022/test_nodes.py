@@ -86,3 +86,36 @@ def test_compute_summary_metrics():
     assert metrics["pytorch_test_rmsd_mev"] == pytest.approx(3.0)
     assert metrics["jax_test_mae_mev"] == pytest.approx(4.0)
     assert metrics["jax_test_rmsd_mev"] == pytest.approx(4.0)
+
+
+from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
+    train_jax_model,
+    train_pytorch_model,
+)
+
+
+def test_train_pytorch_model_returns_tuple():
+    """Test that PyTorch training returns a model and a loss history dataframe."""
+    X_train = np.random.randn(20, 7)
+    y_train = pd.Series([100.0] * 20)
+    params = {"epochs": 2, "batch_size": 10}
+
+    model, loss_df = train_pytorch_model(X_train, y_train, params)
+
+    assert model is not None
+    assert not loss_df.empty
+    assert "loss" in loss_df.columns
+    assert len(loss_df) == 2  # 2 epochs tested
+
+def test_train_jax_model_returns_tuple():
+    """Test that JAX training returns params and a loss history dataframe."""
+    X_train = np.random.randn(20, 7)
+    y_train = pd.Series([100.0] * 20)
+    params = {"epochs": 2, "batch_size": 10}
+
+    jax_output, loss_df = train_jax_model(X_train, y_train, params)
+
+    assert "params" in jax_output
+    assert not loss_df.empty
+    assert "loss" in loss_df.columns
+    assert len(loss_df) == 2  # 2 epochs tested
