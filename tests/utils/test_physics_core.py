@@ -1,9 +1,11 @@
 import pytest
+
 from nuclear_mass_predictor.utils.physics_core import (
+    calculate_asy,
     calculate_pairing,
     distance_to_magic,
-    calculate_asy,
 )
+
 
 def test_calculate_pairing():
     # Odd numbers should return 1

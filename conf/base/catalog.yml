@@ -6,3 +6,7 @@
 iaea_raw_data:
   type: pandas.CSVDataset
   filepath: data/01_raw/iaea_raw_data.csv
+
+primary_features:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/primary_features.parquet
