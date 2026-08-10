@@ -1,0 +1,30 @@
+[build-system]
+requires = [ "setuptools",]
+build-backend = "setuptools.build_meta"
+
+[project]
+requires-python = ">=3.9"
+name = "nuclear_mass_predictor"
+readme = "README.md"
+dynamic = [ "version",]
+dependencies = [ "ipython>=8.10", "jupyterlab>=3.0", "notebook", "kedro~=0.19.15",]
+
+[project.scripts]
+nuclear-mass-predictor = "nuclear_mass_predictor.__main__:main"
+
+[tool.kedro]
+package_name = "nuclear_mass_predictor"
+project_name = "Nuclear Mass Predictor"
+kedro_init_version = "0.19.15"
+tools = "['None']"
+example_pipeline = "False"
+source_dir = "src"
+
+[project.entry-points."kedro.hooks"]
+
+[tool.setuptools.dynamic.version]
+attr = "nuclear_mass_predictor.__version__"
+
+[tool.setuptools.packages.find]
+where = [ "src",]
+namespaces = false
