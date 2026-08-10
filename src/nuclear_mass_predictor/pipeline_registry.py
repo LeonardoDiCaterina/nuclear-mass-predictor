@@ -6,6 +6,9 @@ from nuclear_mass_predictor.pipelines.data_engineering.pipeline import (
 from nuclear_mass_predictor.pipelines.papers.zeng_2022.pipeline import (
     create_pipeline as zeng_2022_pipeline,
 )
+from nuclear_mass_predictor.pipelines.reporting.pipeline import (
+    create_pipeline as reporting,
+)
 
 
 def register_pipelines() -> dict[str, Pipeline]:
@@ -20,5 +23,6 @@ def register_pipelines() -> dict[str, Pipeline]:
     return {
         "data_engineering": de,
         "zeng_2022": de + zeng,  # Chains ingestion/engineering + zeng_2022 splitting/scaling
+        "reporting": reporting(),
         "__default__": de + zeng,
     }

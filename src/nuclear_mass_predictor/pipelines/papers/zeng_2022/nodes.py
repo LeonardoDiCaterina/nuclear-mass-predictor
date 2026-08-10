@@ -162,6 +162,7 @@ def train_jax_model(
 
 from nuclear_mass_predictor.schemas.reporting_schema import UnifiedPredictionSchema
 
+
 def evaluate_models(
     pytorch_model: nn.Module,
     jax_params: dict[str, Any],

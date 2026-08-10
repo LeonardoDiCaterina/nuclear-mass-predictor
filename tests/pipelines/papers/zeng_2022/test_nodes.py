@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import pytest
 
 from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
     scale_features,
@@ -58,3 +59,30 @@ def test_scale_features():
     assert scaler_params["feature_names"] == ["feat1", "feat2"]
     assert len(scaler_params["mean"]) == 2
     assert len(scaler_params["scale"]) == 2
+
+from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
+    compute_summary_metrics,
+)
+
+
+def test_compute_summary_metrics():
+    """
+    Test that the summary metrics node correctly calculates RMSD and MAE
+    grouped by framework.
+    """
+    # Arrange: Create dummy residuals (True - Pred)
+    # PyTorch residuals: [3.0, -3.0] -> MAE: 3.0, RMSD: 3.0
+    # JAX residuals: [4.0, -4.0] -> MAE: 4.0, RMSD: 4.0
+    dummy_unified_df = pd.DataFrame({
+        "framework": ["pytorch", "pytorch", "jax", "jax"],
+        "residual": [3.0, -3.0, 4.0, -4.0]
+    })
+
+    # Act
+    metrics = compute_summary_metrics(dummy_unified_df)
+
+    # Assert
+    assert metrics["pytorch_test_mae_mev"] == pytest.approx(3.0)
+    assert metrics["pytorch_test_rmsd_mev"] == pytest.approx(3.0)
+    assert metrics["jax_test_mae_mev"] == pytest.approx(4.0)
+    assert metrics["jax_test_rmsd_mev"] == pytest.approx(4.0)

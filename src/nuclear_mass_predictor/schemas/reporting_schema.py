@@ -1,6 +1,7 @@
 import pandera.pandas as pa
 from pandera.typing import Series
 
+
 class UnifiedPredictionSchema(pa.DataFrameModel):
     z: Series[int] = pa.Field(ge=0)
     n: Series[int] = pa.Field(ge=0)

@@ -1,12 +1,12 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
+    compute_summary_metrics,
     evaluate_models,
     scale_features,
     split_historical_data,
     train_jax_model,
     train_pytorch_model,
-    compute_summary_metrics,
 )
 
 

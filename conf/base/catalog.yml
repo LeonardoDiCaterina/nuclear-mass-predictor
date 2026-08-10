@@ -47,3 +47,11 @@ zeng_2022.unified_test_predictions:
 zeng_2022.evaluation_metrics:
   type: tracking.MetricsDataset
   filepath: data/08_reporting/zeng_2022/metrics.json
+
+zeng_2022.residual_plots:
+  type: matplotlib.MatplotlibWriter
+  filepath: data/08_reporting/zeng_2022/residual_plots.png
+
+zeng_2022.heteroscedasticity_metrics:
+  type: tracking.MetricsDataset
+  filepath: data/08_reporting/zeng_2022/heteroscedasticity_metrics.json
