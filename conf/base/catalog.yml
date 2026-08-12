@@ -7,9 +7,26 @@ iaea_raw_data:
   type: pandas.CSVDataset
   filepath: data/01_raw/iaea_raw_data.csv
 
+ame2016_raw_data:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/ame2016_raw_data.csv
+
+ame2020_raw_data:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/ame2020_raw_data.csv
+
 primary_features:
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/primary_features.parquet
+
+zeng_2022.train_dataset:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/zeng_2022/train_dataset.parquet
+
+zeng_2022.test_dataset:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/zeng_2022/test_dataset.parquet
+
 
   
 zeng_2022.X_train:

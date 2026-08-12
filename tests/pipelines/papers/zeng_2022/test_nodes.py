@@ -35,6 +35,28 @@ def test_split_historical_data():
     assert list(X_train.columns) == ["z", "n", "z_eo", "n_eo", "delta_z", "delta_n", "asy"]
 
 
+def test_split_historical_data_with_is_test20():
+    df = pd.DataFrame({
+        "z": [8, 20, 26],
+        "n": [8, 20, 30],
+        "z_eo": [0, 0, 0],
+        "n_eo": [0, 0, 0],
+        "delta_z": [0, 0, 2],
+        "delta_n": [0, 0, 2],
+        "asy": [0.0, 0.0, 0.5],
+        "binding_energy_total_mev": [127.6, 342.0, 492.2],
+        "is_test20": [False, False, True],
+        "is_ws4_subset": [True, True, True]
+    })
+    params = {}
+    X_train, X_test, y_train, y_test = split_historical_data(df, params)
+    assert len(X_train) == 2
+    assert len(y_train) == 2
+    assert len(X_test) == 1
+    assert len(y_test) == 1
+    assert y_test.iloc[0] == 492.2
+
+
 def test_scale_features():
     # Arrange: Create numeric training and test frames and series
     X_train = pd.DataFrame({

@@ -10,26 +10,34 @@ def split_historical_data(
     params: dict[str, Any]
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
     """
-    Splits the dataset into a historical training set (AME2016 proxy, ~3434 samples)
+    Splits the dataset into a historical training set (AME2016, 3434 samples)
     and a holdout test set (AME2020 additions, 122 samples).
+    Supports WS4 subset filtering (Z >= 8, N >= 8) if ws4_subset_only is configured.
     """
-    test_size = params.get("test_size_target", 122)
-    
-    if "discovery" in df.columns:
-        df = df.sort_values(by="discovery")
-        
-    test_df = df.tail(test_size)
-    train_df = df.head(len(df) - test_size)
+    if "is_test20" in df.columns:
+        train_df = df[~df["is_test20"]].copy()
+        test_df = df[df["is_test20"]].copy()
+    else:
+        test_size = params.get("test_size_target", 122)
+        if "discovery" in df.columns:
+            df = df.sort_values(by="discovery")
+        test_df = df.tail(test_size)
+        train_df = df.head(len(df) - test_size)
+
+    if params.get("ws4_subset_only", False) and "is_ws4_subset" in df.columns:
+        train_df = train_df[train_df["is_ws4_subset"]].copy()
+        test_df = test_df[test_df["is_ws4_subset"]].copy()
     
     feature_cols = ["z", "n", "z_eo", "n_eo", "delta_z", "delta_n", "asy"]
-    
-    target_col = params.get("target_col", "binding_energy")
+    target_col = params.get("target_col", "binding_energy_total_mev")
+    if target_col not in train_df.columns:
+        target_col = "residual_energy" if "residual_energy" in train_df.columns else "binding_energy"
 
-    X_train = train_df[feature_cols]
-    y_train = train_df[target_col]
+    X_train = train_df[feature_cols].copy()
+    y_train = train_df[target_col].copy()
     
-    X_test = test_df[feature_cols]
-    y_test = test_df[target_col]
+    X_test = test_df[feature_cols].copy()
+    y_test = test_df[target_col].copy()
     
     return X_train, X_test, y_train, y_test
 
