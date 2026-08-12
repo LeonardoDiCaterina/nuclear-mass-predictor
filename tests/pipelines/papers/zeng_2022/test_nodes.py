@@ -36,7 +36,7 @@ def test_split_historical_data():
 
 
 def test_scale_features():
-    # Arrange: Create simple numeric training and test frames
+    # Arrange: Create numeric training and test frames and series
     X_train = pd.DataFrame({
         "feat1": [0.0, 10.0, 20.0],
         "feat2": [5.0, 5.0, 5.0]
@@ -45,20 +45,30 @@ def test_scale_features():
         "feat1": [10.0],
         "feat2": [5.0]
     })
+    y_train = pd.Series([100.0, 200.0, 300.0])
+    y_test = pd.Series([150.0])
+    params = {"scale_target": True}
 
     # Act
-    X_train_scaled, _X_test_scaled, scaler_params = scale_features(X_train, X_test)
+    X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled, scaler_params = scale_features(
+        X_train, X_test, y_train, y_test, params
+    )
 
     # Assert
     # Check that feature means are centered around 0 for training data
     assert np.allclose(X_train_scaled.mean(axis=0), 0.0)
+    assert np.allclose(y_train_scaled.mean(), 0.0)
+    assert X_test_scaled.shape == (1, 2)
+    assert y_test_scaled.shape == (1,)
     
     # Check structure of exportable YAML parameters
-    assert "mean" in scaler_params
-    assert "scale" in scaler_params
+    assert "x_mean" in scaler_params
+    assert "x_scale" in scaler_params
+    assert "y_mean" in scaler_params
+    assert "y_scale" in scaler_params
     assert scaler_params["feature_names"] == ["feat1", "feat2"]
-    assert len(scaler_params["mean"]) == 2
-    assert len(scaler_params["scale"]) == 2
+    assert len(scaler_params["x_mean"]) == 2
+    assert len(scaler_params["x_scale"]) == 2
 
 from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
     compute_summary_metrics,

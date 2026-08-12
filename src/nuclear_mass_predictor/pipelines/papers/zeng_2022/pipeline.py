@@ -21,25 +21,25 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=scale_features,
-                inputs=["X_train", "X_test"],
-                outputs=["X_train_scaled", "X_test_scaled", "scaler_params"],
+                inputs=["X_train", "X_test", "y_train", "y_test", "params:zeng_2022_training"],
+                outputs=["X_train_scaled", "X_test_scaled", "y_train_scaled", "y_test_scaled", "scaler_params"],
                 name="scale_features_node",
             ),
             node(
                 func=train_pytorch_model,
-                inputs=["X_train_scaled", "y_train", "params:zeng_2022_training"],
+                inputs=["X_train_scaled", "y_train_scaled", "params:zeng_2022_training"],
                 outputs=["pytorch_model","pytorch_loss_history"],
                 name="train_pytorch_model_node",
             ),
             node(
                 func=train_jax_model,
-                inputs=["X_train_scaled", "y_train", "params:zeng_2022_training"],
+                inputs=["X_train_scaled", "y_train_scaled", "params:zeng_2022_training"],
                 outputs=["jax_model","jax_loss_history"],
                 name="train_jax_model_node",
             ),
             node(
                 func=evaluate_models,
-                inputs=["pytorch_model", "jax_model", "X_test_scaled", "y_test", "X_test"],
+                inputs=["pytorch_model", "jax_model", "X_test_scaled", "y_test", "X_test", "scaler_params"],
                 outputs="zeng_2022.unified_test_predictions", # Outputs the rich DataFrame
                 name="evaluate_models_node",
             ),

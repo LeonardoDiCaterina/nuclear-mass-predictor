@@ -1,26 +1,25 @@
 import torch
-from torch import nn
+
+from nuclear_mass_predictor.models.pytorch_ann import NuclearANN7
 
 
-class NuclearANN7(nn.Module):
-    """
-    ANN7 architecture for predicting nuclear binding energies.
-    Uses 7 input features, two hidden layers (32 and 16 nodes), and GeLU activation.
-    """
-    def __init__(self):
-        super().__init__()
-        
-        # Define the layers according to the paper's Table I specifications
-        self.network = nn.Sequential(
-            nn.Linear(in_features=7, out_features=32),
-            nn.GELU(),
-            nn.Linear(in_features=32, out_features=16),
-            nn.GELU(),
-            nn.Linear(in_features=16, out_features=1)
-        )
+def test_pytorch_nuclear_ann7_parameter_count():
+    model = NuclearANN7()
+    total_params = sum(p.numel() for p in model.parameters())
+    # Topology: (7*9 + 9) + (9*8 + 8) + (8*1 + 1) = 72 + 80 + 9 = 161 parameters
+    assert total_params == 161, f"Expected 161 parameters, but found {total_params}"
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass of the neural network.
-        """
-        return self.network(x)
+
+def test_pytorch_nuclear_ann7_forward_pass():
+    model = NuclearANN7()
+    model.eval()
+    
+    batch_size = 32
+    dummy_input = torch.ones((batch_size, 7), dtype=torch.float32)
+    
+    with torch.no_grad():
+        output = model(dummy_input)
+    
+    assert output.shape == (batch_size, 1)
+    assert not torch.isnan(output).any()
+

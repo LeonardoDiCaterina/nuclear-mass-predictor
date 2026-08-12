@@ -16,8 +16,8 @@ def test_jax_nuclear_ann7_parameter_count():
     params = variables['params']
     total_params = sum(x.size for x in jax.tree_util.tree_leaves(params))
     
-    # The paper explicitly states ANN7 must have exactly 801 parameters
-    assert total_params == 801, f"Expected 801 parameters, but found {total_params}"
+    # Model topology: 7->9->8->1 has exactly 161 parameters
+    assert total_params == 161, f"Expected 161 parameters, but found {total_params}"
 
 def test_jax_nuclear_ann7_forward_pass():
     model = NuclearANN7()

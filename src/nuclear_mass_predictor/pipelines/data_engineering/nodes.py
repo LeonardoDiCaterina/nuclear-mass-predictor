@@ -14,7 +14,9 @@ import requests
 from nuclear_mass_predictor.schemas.ame2020 import RawNuclearSchema
 from nuclear_mass_predictor.utils.physics_core import (
     calculate_asy,
+    calculate_liquid_drop_energy,
     calculate_pairing,
+    calculate_ws4_macroscopic_energy,
     distance_to_magic,
 )
 
@@ -45,34 +47,45 @@ def fetch_iaea_data(api_params: dict[str, Any]) -> pd.DataFrame:
 
     return df
 
+
+
 @pa.check_types
 def create_engineered_features(
     raw_data: pa.typing.DataFrame[RawNuclearSchema],
-    ws4_params: dict[str, Any]
+    ws4_params: dict[str, Any],
+    baseline_params: dict[str, Any]
 ) -> pd.DataFrame:
-    """
-    Node 2: Takes the validated raw data and calculates the physical priors.
-    """
     df = raw_data.copy()
 
-    # 1. Pairing effects
+    # 0. Convert API Binding Energy (keV/nucleon) to Total Binding Energy (MeV)
+    a = df['z'] + df['n']
+    df['binding_energy_total_mev'] = (df['binding_energy'] * a) / 1000.0
+
+    # 1. Physical features
     df['z_eo'] = df['z'].apply(calculate_pairing)
     df['n_eo'] = df['n'].apply(calculate_pairing)
-
-    # 2. Shell effects
     df['delta_z'] = df['z'].apply(distance_to_magic)
     df['delta_n'] = df['n'].apply(distance_to_magic)
+    df['asy'] = df.apply(lambda row: calculate_asy(row['z'], row['n'], **ws4_params), axis=1)
 
-    # 3. Isospin-asymmetry effect
-    df['asy'] = df.apply(
-        lambda row: calculate_asy(
-            z=row['z'],
-            n=row['n'],
-            kappa=ws4_params['kappa'],
-            xi=ws4_params['xi'],
-            fs=ws4_params['fs']
-        ),
-        axis=1
-    )
+    # 2. Configurable Macroscopic Baseline
+    model_type = baseline_params.get("model_type", "none")
+    
+    if model_type == "ldm":
+        df['macroscopic_energy'] = df.apply(
+            lambda row: calculate_liquid_drop_energy(row['z'], row['n'], baseline_params['ldm_coeffs']), 
+            axis=1
+        )
+    elif model_type == "ws4":
+        df['macroscopic_energy'] = df.apply(
+            lambda row: calculate_ws4_macroscopic_energy(row['z'], row['n'], baseline_params['ws4_coeffs']), 
+            axis=1
+        )
+    else:
+        df['macroscopic_energy'] = 0.0
+
+    # 3. Target Definition (Apples to Apples!)
+    df['residual_energy'] = df['binding_energy_total_mev'] - df['macroscopic_energy']
 
     return df
+

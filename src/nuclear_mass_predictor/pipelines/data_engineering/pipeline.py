@@ -18,7 +18,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=create_engineered_features,
-                inputs=["iaea_raw_data", "params:ws4_parameters"],
+                inputs=["iaea_raw_data", "params:ws4_parameters","params:baseline_params"],
                 outputs="primary_features",
                 name="create_engineered_features_node",
             )

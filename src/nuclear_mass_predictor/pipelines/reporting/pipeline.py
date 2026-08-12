@@ -1,6 +1,10 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
-from .nodes import create_residual_plots, test_heteroscedasticity, create_loss_curves_plot
+from .nodes import (
+    create_loss_curves_plot,
+    create_residual_plots,
+    test_heteroscedasticity,
+)
 
 
 def create_pipeline(**kwargs) -> Pipeline:

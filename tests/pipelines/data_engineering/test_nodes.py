@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from nuclear_mass_predictor.pipelines.data_engineering.nodes import fetch_iaea_data
 
@@ -47,18 +48,26 @@ def test_create_engineered_features():
         "xi": 0.0, 
         "fs": 1.0
     }
+    baseline_params = {
+        "model_type": "none"
+    }
 
     # 2. Act: Pass the data through the node
-    # Pandera will automatically validate 'raw_data' before executing the logic
-    result_df = create_engineered_features(raw_data, ws4_params)
+    result_df = create_engineered_features(raw_data, ws4_params, baseline_params)
 
     # 3. Assert: Verify the new columns exist and the logic mapped correctly
     expected_columns = [
-        "z", "n", "binding_energy", 
-        "z_eo", "n_eo", "delta_z", "delta_n", "asy"
+        "z", "n", "binding_energy", "binding_energy_total_mev",
+        "z_eo", "n_eo", "delta_z", "delta_n", "asy",
+        "macroscopic_energy", "residual_energy"
     ]
     assert all(col in result_df.columns for col in expected_columns)
     
+    # Check total binding energy conversion: BE_total = BE * (z + n) / 1000.0
+    # For z=8, n=8, BE=60.0 -> 60.0 * 16 / 1000 = 0.96 MeV
+    assert result_df.loc[0, "binding_energy_total_mev"] == pytest.approx(0.96)
+    assert result_df.loc[0, "residual_energy"] == pytest.approx(0.96)
+
     # Check pairing logic
     assert result_df.loc[0, "z_eo"] == 0  # z=8 (even)
     assert result_df.loc[2, "z_eo"] == 1  # z=9 (odd)

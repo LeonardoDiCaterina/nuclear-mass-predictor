@@ -2,10 +2,26 @@ ws4_parameters:
   kappa: 1.139  # WS4 surface asymmetry coefficient
   xi: 1.250     # WS4 isospin coefficient
   fs: 1.0       # Scaling factor
+baseline_params:
+  model_type: "ws4"  # Can easily be swapped to "none" or "ws4" in the future
+  ws4_coeffs:
+    a_v: 15.5906
+    a_s: 17.0251
+    a_c: 0.7053
+    kappa: 1.139
+    delta_0: 11.2
+  ldm_coeffs:
+    a_v: 15.75
+    a_s: 17.8
+    a_c: 0.711
+    a_a: 23.7
+    delta_0: 11.18
 
 zeng_2022_training:
+  target_col: "residual_energy"
   learning_rate: 0.0001
   beta1: 0.9
   beta2: 0.999
   epochs: 10000
   batch_size: 64
+  scale_target: true
