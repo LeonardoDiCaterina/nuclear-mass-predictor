@@ -2,7 +2,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 
 def split_historical_data(
@@ -15,8 +15,13 @@ def split_historical_data(
     Supports WS4 subset filtering (Z >= 8, N >= 8) if ws4_subset_only is configured.
     """
     if "is_test20" in df.columns:
+        test_set_def = params.get("test_set_definition", "default")
         train_df = df[~df["is_test20"]].copy()
-        test_df = df[df["is_test20"]].copy()
+        
+        if test_set_def == "promoted" and "is_promoted_test" in df.columns:
+            test_df = df[df["is_promoted_test"]].copy()
+        else:
+            test_df = df[df["is_test20"]].copy()
     else:
         test_size = params.get("test_size_target", 122)
         if "discovery" in df.columns:
@@ -55,25 +60,37 @@ def scale_features(
     pure statistical parameters (mean, scale) as a dictionary for YAML serialization.
     """
     scale_target = params.get("scale_target", False)
+    scaler_type = params.get("scaler_type", "standard")
 
-    x_scaler = StandardScaler()
+    if scaler_type == "minmax":
+        x_scaler = MinMaxScaler()
+    else:
+        x_scaler = StandardScaler()
+        
     X_train_scaled = x_scaler.fit_transform(X_train)
     X_test_scaled = x_scaler.transform(X_test)
 
     if scale_target:
-        y_scaler = StandardScaler()
-        y_train_scaled = y_scaler.fit_transform(y_train.values.reshape(-1, 1)).ravel()
-        y_test_scaled = y_scaler.transform(y_test.values.reshape(-1, 1)).ravel()
-        y_mean = float(y_scaler.mean_[0])
-        y_scale = float(y_scaler.scale_[0])
+        if scaler_type == "minmax":
+            y_scaler = MinMaxScaler()
+            y_train_scaled = y_scaler.fit_transform(y_train.values.reshape(-1, 1)).ravel()
+            y_test_scaled = y_scaler.transform(y_test.values.reshape(-1, 1)).ravel()
+            y_mean = float(y_scaler.data_min_[0])
+            y_scale = float(y_scaler.data_range_[0])
+        else:
+            y_scaler = StandardScaler()
+            y_train_scaled = y_scaler.fit_transform(y_train.values.reshape(-1, 1)).ravel()
+            y_test_scaled = y_scaler.transform(y_test.values.reshape(-1, 1)).ravel()
+            y_mean = float(y_scaler.mean_[0])
+            y_scale = float(y_scaler.scale_[0])
     else:
         y_train_scaled = y_train.values.astype(float)
         y_test_scaled = y_test.values.astype(float)
         y_mean = 0.0
         y_scale = 1.0
     scaler_params = {
-        "x_mean": x_scaler.mean_.tolist(),
-        "x_scale": x_scaler.scale_.tolist(),
+        "x_mean": x_scaler.data_min_.tolist() if scaler_type == "minmax" else x_scaler.mean_.tolist(),
+        "x_scale": x_scaler.data_range_.tolist() if scaler_type == "minmax" else x_scaler.scale_.tolist(),
         "y_mean": y_mean,
         "y_scale": y_scale,
         "scale_target": scale_target,
@@ -87,35 +104,53 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from nuclear_mass_predictor.models.pytorch_ann import NuclearANN7 as torch_NuclearANN7
+from nuclear_mass_predictor.models.pytorch_ann import (
+    DynamicNuclearANN as torch_DynamicNuclearANN,
+)
 
 
 def train_pytorch_model(
     X_train_scaled: np.ndarray,
     y_train_scaled: pd.Series,
-    params: dict[str, Any]
+    scaler_params: dict[str, Any],
+    params: dict[str, Any],
+    model_name: str
 ) -> tuple[nn.Module, pd.DataFrame]:
     """
-    Trains the PyTorch ANN7 model and tracks epoch-by-epoch MAE loss.
-    Returns a tuple of (model, loss_history_dataframe).
+    Trains the PyTorch dynamic ANN model and tracks epoch-by-epoch MAE loss.
     """
     lr = params.get("learning_rate", 0.0001)
     beta1 = params.get("beta1", 0.9)
     beta2 = params.get("beta2", 0.999)
-    epochs = params.get("epochs", 3000)
+    epochs = params.get("epochs", 10000)
     batch_size = params.get("batch_size", 64)
+    if params.get("smoke_run", False):
+        epochs = 5
 
-    X_tensor = torch.tensor(X_train_scaled, dtype=torch.float32)
+    features = params["model_suite"][model_name]["features"]
+    hidden_dims = params["model_suite"][model_name]["hidden_dims"]
+    
+    all_features = scaler_params["feature_names"]
+    feature_indices = [all_features.index(f) for f in features]
+    X_train_scaled_filtered = X_train_scaled[:, feature_indices]
+    input_dim = len(features)
+
+    X_tensor = torch.tensor(X_train_scaled_filtered, dtype=torch.float32)
     y_tensor = torch.tensor(y_train_scaled, dtype=torch.float32).unsqueeze(1)
+    weight_decay = params.get("weight_decay", 0.0)
     
     dataset = TensorDataset(X_tensor, y_tensor)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    model = torch_NuclearANN7()
+    model = torch_DynamicNuclearANN(input_dim=input_dim, hidden_dims=hidden_dims)
     model.train()
     
     criterion = nn.L1Loss()  
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(beta1, beta2))
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=(beta1, beta2), weight_decay=weight_decay)
+    
+    scheduler = None
+    if params.get("lr_schedule") == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
 
     epoch_losses = []
 
@@ -129,12 +164,15 @@ def train_pytorch_model(
             optimizer.step()
             batch_losses.append(loss.item())
             
+        if scheduler:
+            scheduler.step()
+            
         epoch_losses.append(np.mean(batch_losses))
 
-    # Compile the loss history into a standardized DataFrame
     loss_df = pd.DataFrame({
         "epoch": range(epochs),
         "framework": "pytorch",
+        "model_name": model_name,
         "loss": epoch_losses
     })
 
@@ -151,32 +189,49 @@ import numpy as np
 import optax
 import pandas as pd
 
-from nuclear_mass_predictor.models.jax_ann import NuclearANN7 as jax_NuclearANN7
+from nuclear_mass_predictor.models.jax_ann import (
+    DynamicNuclearANN as jax_DynamicNuclearANN,
+)
 
 
 def train_jax_model(
     X_train_scaled: np.ndarray,
     y_train_scaled: pd.Series,
-    params: dict[str, Any]
+    scaler_params: dict[str, Any],
+    params: dict[str, Any],
+    model_name: str
 ) -> tuple[dict[str, Any], pd.DataFrame]:
     """
-    Trains the JAX ANN7 model with mini-batching and tracks MAE loss.
-    Returns a tuple of (params_tree, loss_history_dataframe).
+    Trains the JAX dynamic ANN model with mini-batching and tracks MAE loss.
     """
     lr = params.get("learning_rate", 0.0001)
-    epochs = params.get("epochs", 3000)
+    epochs = params.get("epochs", 10000)
     batch_size = params.get("batch_size", 64)
+    if params.get("smoke_run", False):
+        epochs = 5
+        
+    features = params["model_suite"][model_name]["features"]
+    hidden_dims = params["model_suite"][model_name]["hidden_dims"]
+    
+    all_features = scaler_params["feature_names"]
+    feature_indices = [all_features.index(f) for f in features]
+    X_train_scaled_filtered = X_train_scaled[:, feature_indices]
 
-    X_jnp = jnp.array(X_train_scaled)
+    X_jnp = jnp.array(X_train_scaled_filtered)
     y_jnp = jnp.array(y_train_scaled).reshape(-1, 1)
     num_samples = X_jnp.shape[0]
 
-    model = jax_NuclearANN7()
+    model = jax_DynamicNuclearANN(hidden_dims=hidden_dims)
     rng = jax.random.PRNGKey(0)
     rng, init_rng = jax.random.split(rng)
-    variables = model.init(init_rng, X_jnp)
+    variables = model.init(init_rng, X_jnp[:1])
 
-    optimizer = optax.adam(learning_rate=lr, b1=0.9, b2=0.999)
+    if params.get("lr_schedule") == "cosine":
+        lr_sched = optax.cosine_decay_schedule(init_value=lr, decay_steps=epochs, alpha=1e-2)
+        optimizer = optax.adam(learning_rate=lr_sched, b1=0.9, b2=0.999)
+    else:
+        optimizer = optax.adam(learning_rate=lr, b1=0.9, b2=0.999)
+        
     opt_state = optimizer.init(variables['params'])
 
     @jax.jit
@@ -209,10 +264,10 @@ def train_jax_model(
 
         epoch_losses.append(np.mean(batch_losses))
 
-    # Compile the loss history into a standardized DataFrame
     loss_df = pd.DataFrame({
         "epoch": range(epochs),
         "framework": "jax",
+        "model_name": model_name,
         "loss": epoch_losses
     })
 
@@ -224,46 +279,47 @@ def train_jax_model(
 from nuclear_mass_predictor.schemas.reporting_schema import UnifiedPredictionSchema
 
 
-def evaluate_models(
-    pytorch_model: nn.Module,
-    jax_params: dict[str, Any],
+def evaluate_all_models(
     X_test_scaled: np.ndarray,
     y_test: pd.Series,
     X_test_raw: pd.DataFrame,
-    scaler_params: dict[str, Any]
+    scaler_params: dict[str, Any],
+    params: dict[str, Any],
+    **models
 ) -> pd.DataFrame:
-
-    # 1. Generate PyTorch Predictions (Scaled space)
-    pytorch_model.eval()
-    with torch.no_grad():
-        X_test_torch = torch.tensor(X_test_scaled, dtype=torch.float32)
-        pt_preds_scaled = pytorch_model(X_test_torch).numpy().flatten()
-
-    # 2. Generate JAX Predictions (Scaled space)
-    jax_model = jax_NuclearANN7()
-    jax_preds_scaled = jax_model.apply(jax_params, jnp.array(X_test_scaled)).flatten()
-
-    # 3. Retrieve target scaling parameters
-    y_mean = scaler_params.get("y_mean", 0.0)
-    y_scale = scaler_params.get("y_scale", 1.0)
-
-    # 4. Inverse transform predictions back to true MeV
-    pt_preds = (pt_preds_scaled * y_scale) + y_mean
-    jax_preds = (jax_preds_scaled * y_scale) + y_mean
-
-    # 5. Standardize into long format
+    
     results = []
     y_true = y_test.values
+    y_mean = scaler_params.get("y_mean", 0.0)
+    y_scale = scaler_params.get("y_scale", 1.0)
+    all_features = scaler_params["feature_names"]
 
-    for name, framework, preds in [
-        ("ann7_baseline", "pytorch", pt_preds),
-        ("ann7_baseline", "jax", jax_preds)
-    ]:
+    for name, model_obj in models.items():
+        parts = name.split('_')
+        model_name = parts[0]
+        framework = parts[1]
+        
+        features = params["model_suite"][model_name]["features"]
+        feature_indices = [all_features.index(f) for f in features]
+        X_test_scaled_filtered = X_test_scaled[:, feature_indices]
+        
+        if framework == "pytorch":
+            model_obj.eval()
+            with torch.no_grad():
+                X_test_torch = torch.tensor(X_test_scaled_filtered, dtype=torch.float32)
+                preds_scaled = model_obj(X_test_torch).numpy().flatten()
+        elif framework == "jax":
+            hidden_dims = params["model_suite"][model_name]["hidden_dims"]
+            jax_model = jax_DynamicNuclearANN(hidden_dims=hidden_dims)
+            preds_scaled = jax_model.apply(model_obj, jnp.array(X_test_scaled_filtered)).flatten()
+            
+        preds = (preds_scaled * y_scale) + y_mean
+        
         df = X_test_raw.copy()
         df["binding_energy_true"] = y_true
         df["prediction"] = preds
         df["residual"] = df["binding_energy_true"] - df["prediction"]
-        df["model_name"] = name
+        df["model_name"] = model_name
         df["framework"] = framework
         results.append(df)
 

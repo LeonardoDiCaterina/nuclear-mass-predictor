@@ -33,7 +33,9 @@ def parse_amdc_fixed_width(raw_text: str, start_line: int = 36) -> pd.DataFrame:
         z_str = line[9:14].strip()
         a_str = line[14:19].strip()
         el = line[20:23].strip()
-        be_str = line[54:65].replace("#", ".").strip()
+        be_str_raw = line[54:65].strip()
+        is_extrapolated = "#" in be_str_raw
+        be_str = be_str_raw.replace("#", ".")
 
         if n_str.isdigit() and z_str.isdigit() and a_str.isdigit():
             n = int(n_str)
@@ -52,6 +54,7 @@ def parse_amdc_fixed_width(raw_text: str, start_line: int = 36) -> pd.DataFrame:
                 "binding_energy_per_a_kev": be_val,
                 "binding_energy": be_val,
                 "binding_energy_total_mev": be_total,
+                "is_extrapolated": is_extrapolated,
             })
     return pd.DataFrame(records)
 
@@ -92,7 +95,13 @@ def create_ame_historical_dataset(
 
     # 1. Historical split tagging
     keys_16 = set(zip(df_2016["z"], df_2016["n"]))
+    keys_16_extrap = set(zip(df_2016[df_2016["is_extrapolated"]]["z"], df_2016[df_2016["is_extrapolated"]]["n"]))
+    
     df["is_test20"] = [(row.z, row.n) not in keys_16 for row in df.itertuples()]
+    df["is_promoted_test"] = [
+        ((row.z, row.n) in keys_16_extrap) and (not row.is_extrapolated)
+        for row in df.itertuples()
+    ]
     df["is_ws4_subset"] = (df["z"] >= 8) & (df["n"] >= 8)
 
     # 2. Physics priors (5 features)
