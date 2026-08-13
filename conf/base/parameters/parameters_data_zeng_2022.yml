@@ -18,10 +18,28 @@ baseline_params:
     delta_0: 11.18
 
 zeng_2022_training:
-  target_col: "residual_energy"
+  target_col: "binding_energy_total_mev"
   learning_rate: 0.0001
   beta1: 0.9
   beta2: 0.999
-  epochs: 10000
+  epochs: 30000
   batch_size: 64
+  scaler_type: "standard"
+  test_set_definition: "promoted"
   scale_target: true
+  lr_schedule: "constant"
+  weight_decay: 1.0e-4
+  smoke_run: false  # Override epochs to 5 for rapid testing
+  model_suite:
+    # ANN2:
+    #   features: ["z", "n"]
+    #   hidden_dims: [35, 19]
+    # ANN4:
+    #   features: ["z", "n", "z_eo", "n_eo"]
+    #   hidden_dims: [35, 17]
+    # ANN6:
+    #   features: ["z", "n", "z_eo", "n_eo", "delta_z", "delta_n"]
+    #   hidden_dims: [32, 17]
+    ANN7:
+      features: ["z", "n", "z_eo", "n_eo", "delta_z", "delta_n", "asy"]
+      hidden_dims: [32, 16]

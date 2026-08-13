@@ -49,13 +49,9 @@ zeng_2022.scaler_params:
   type: yaml.YAMLDataset
   filepath: data/06_models/zeng_2022/scaler_params.yml
 
-zeng_2022.pytorch_model:
+"{model_name}_{framework}_model":
   type: pickle.PickleDataset
-  filepath: data/06_models/zeng_2022/pytorch_ann7.pkl
-
-zeng_2022.jax_model:
-  type: pickle.PickleDataset
-  filepath: data/06_models/zeng_2022/jax_ann7.pkl
+  filepath: data/06_models/zeng_2022/{model_name}_{framework}_model.pkl
 
 zeng_2022.unified_test_predictions:
   type: pandas.ParquetDataset
@@ -73,13 +69,9 @@ zeng_2022.heteroscedasticity_metrics:
   type: tracking.MetricsDataset
   filepath: data/08_reporting/zeng_2022/heteroscedasticity_metrics.json
 
-pytorch_loss_history:
+"{model_name}_{framework}_loss_history":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/zeng_2022/pytorch_loss_history.parquet
-
-jax_loss_history:
-  type: pandas.ParquetDataset
-  filepath: data/08_reporting/zeng_2022/jax_loss_history.parquet
+  filepath: data/08_reporting/zeng_2022/{model_name}_{framework}_loss_history.parquet
 
 zeng_2022.loss_convergence_plot:
   type: matplotlib.MatplotlibWriter
