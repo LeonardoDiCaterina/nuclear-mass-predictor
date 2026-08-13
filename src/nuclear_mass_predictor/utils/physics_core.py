@@ -16,6 +16,24 @@ def distance_to_magic(number: int) -> int:
     distances = np.abs(MAGIC_NUMBERS - number)
     return int(np.min(distances))
 
+def calculate_shell_index(number: int) -> int:
+    """
+    Calculates the shell index (0 to 5) for a nucleon number based on magic intervals.
+    Intervals:
+    0: number <= 20 (since N>=8 is our scope, this covers 8-20)
+    1: 20 < number <= 28
+    2: 28 < number <= 50
+    3: 50 < number <= 82
+    4: 82 < number <= 126
+    5: number > 126
+    """
+    if number <= 20: return 0
+    if number <= 28: return 1
+    if number <= 50: return 2
+    if number <= 82: return 3
+    if number <= 126: return 4
+    return 5
+
 def calculate_asy(z: int, n: int, kappa: float, xi: float, fs: float) -> float:
     """
     Calculates the isospin-asymmetry feature (ASY) based on the WS4 model parameters.

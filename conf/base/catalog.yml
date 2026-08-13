@@ -59,7 +59,15 @@ zeng_2022.unified_test_predictions:
 
 zeng_2022.evaluation_metrics:
   type: tracking.MetricsDataset
-  filepath: data/08_reporting/zeng_2022/metrics.json
+  filepath: data/08_reporting/zeng_2022/evaluation_metrics.json
+
+liu_2024.unified_test_predictions:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/liu_2024/unified_predictions.parquet
+
+liu_2024.evaluation_metrics:
+  type: tracking.JSONDataset
+  filepath: data/08_reporting/liu_2024/evaluation_metrics.json
 
 zeng_2022.residual_plots:
   type: matplotlib.MatplotlibWriter

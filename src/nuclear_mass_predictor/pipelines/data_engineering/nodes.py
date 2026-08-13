@@ -14,6 +14,7 @@ from nuclear_mass_predictor.utils.physics_core import (
     calculate_asy,
     calculate_liquid_drop_energy,
     calculate_pairing,
+    calculate_shell_index,
     calculate_ws4_macroscopic_energy,
     distance_to_magic,
 )
@@ -34,8 +35,10 @@ def parse_amdc_fixed_width(raw_text: str, start_line: int = 36) -> pd.DataFrame:
         a_str = line[14:19].strip()
         el = line[20:23].strip()
         be_str_raw = line[54:65].strip()
-        is_extrapolated = "#" in be_str_raw
+        mass_excess_str_raw = line[28:41].strip()
+        is_extrapolated = "#" in be_str_raw or "#" in mass_excess_str_raw
         be_str = be_str_raw.replace("#", ".")
+        me_str = mass_excess_str_raw.replace("#", ".")
 
         if n_str.isdigit() and z_str.isdigit() and a_str.isdigit():
             n = int(n_str)
@@ -46,11 +49,13 @@ def parse_amdc_fixed_width(raw_text: str, start_line: int = 36) -> pd.DataFrame:
                 continue
             be_val = float(be_str.replace("*", "")) if be_str else np.nan
             be_total = (be_val * a) / 1000.0 if not np.isnan(be_val) else np.nan
+            me_val = float(me_str.replace("*", "")) / 1000.0 if me_str else np.nan # AME gives Mass Excess in keV, convert to MeV
             records.append({
                 "z": z,
                 "n": n,
                 "a": a,
                 "el": el,
+                "mass_excess": me_val,
                 "binding_energy_per_a_kev": be_val,
                 "binding_energy": be_val,
                 "binding_energy_total_mev": be_total,
@@ -109,6 +114,10 @@ def create_ame_historical_dataset(
     df["n_eo"] = df["n"].apply(calculate_pairing)
     df["delta_z"] = df["z"].apply(distance_to_magic)
     df["delta_n"] = df["n"].apply(distance_to_magic)
+    df["a_2_3"] = df["a"] ** (2/3)
+    df["isospin_asym_absolute"] = np.abs(df["n"] - df["z"])
+    df["z_shell"] = df["z"].apply(calculate_shell_index)
+    df["n_shell"] = df["n"].apply(calculate_shell_index)
     df["asy"] = df.apply(lambda row: calculate_asy(row["z"], row["n"], **ws4_params), axis=1)
 
     # 3. Macroscopic baseline & residual
