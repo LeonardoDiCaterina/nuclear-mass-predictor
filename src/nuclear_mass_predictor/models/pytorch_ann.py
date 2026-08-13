@@ -2,22 +2,23 @@ import torch
 from torch import nn
 
 
-class NuclearANN7(nn.Module):
+class DynamicNuclearANN(nn.Module):
     """
-    ANN7 architecture for predicting nuclear binding energies.
-    Uses 7 input features, two hidden layers (9 and 8 nodes), and GeLU activation.
+    Dynamic ANN architecture for predicting nuclear binding energies.
+    Supports variable input features and hidden layer dimensions.
     """
-    def __init__(self):
+    def __init__(self, input_dim: int, hidden_dims: list[int]):
         super().__init__()
         
-        # Define the layers according to the paper's specifications
-        self.network = nn.Sequential(
-            nn.Linear(in_features=7, out_features=9),
-            nn.GELU(),
-            nn.Linear(in_features=9, out_features=8),
-            nn.GELU(),
-            nn.Linear(in_features=8, out_features=1)
-        )
+        layers: list[nn.Module] = []
+        in_dim = input_dim
+        for h_dim in hidden_dims:
+            layers.append(nn.Linear(in_features=in_dim, out_features=h_dim))
+            layers.append(nn.GELU())
+            in_dim = h_dim
+        
+        layers.append(nn.Linear(in_features=in_dim, out_features=1))
+        self.network = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

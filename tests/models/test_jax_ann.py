@@ -1,11 +1,11 @@
 import jax
 import jax.numpy as jnp
 
-from nuclear_mass_predictor.models.jax_ann import NuclearANN7
+from nuclear_mass_predictor.models.jax_ann import DynamicNuclearANN
 
 
 def test_jax_nuclear_ann7_parameter_count():
-    model = NuclearANN7()
+    model = DynamicNuclearANN(input_dim=7, hidden_dims=[9, 8])
     rng = jax.random.PRNGKey(0)
     
     # Flax requires dummy input to initialize the weights lazily
@@ -20,7 +20,7 @@ def test_jax_nuclear_ann7_parameter_count():
     assert total_params == 161, f"Expected 161 parameters, but found {total_params}"
 
 def test_jax_nuclear_ann7_forward_pass():
-    model = NuclearANN7()
+    model = DynamicNuclearANN(input_dim=7, hidden_dims=[9, 8])
     rng = jax.random.PRNGKey(0)
     
     batch_size = 32
