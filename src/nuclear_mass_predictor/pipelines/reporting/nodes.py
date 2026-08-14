@@ -2,7 +2,21 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from scipy import stats
+import numpy as np
 
+def concat_unified_predictions(*preds: pd.DataFrame) -> pd.DataFrame:
+    """Concatenate unified predictions from all paper pipelines."""
+    return pd.concat(preds, ignore_index=True)
+
+def compare_models_metrics(master_preds: pd.DataFrame) -> dict[str, float]:
+    """Calculate summary metrics (RMSD, MAE) across all models and frameworks."""
+    metrics = {}
+    for (model, fw), df in master_preds.groupby(["model_name", "framework"]):
+        rmsd = float(np.sqrt(np.mean(df["residual"] ** 2)))
+        mae = float(np.mean(np.abs(df["residual"])))
+        metrics[f"{model}_{fw}_test_rmsd_mev"] = rmsd
+        metrics[f"{model}_{fw}_test_mae_mev"] = mae
+    return metrics
 
 def create_residual_plots(predictions_df: pd.DataFrame) -> plt.Figure:
     """

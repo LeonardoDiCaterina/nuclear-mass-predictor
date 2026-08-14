@@ -3,11 +3,14 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import torch
-from kan import KAN
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
+import jax
+import jax.numpy as jnp
+from flax import nnx
+import optax
+from jaxkan.KAN import KAN
 
 def split_data_for_kan(
     df: pd.DataFrame, 
@@ -36,13 +39,12 @@ def train_and_evaluate_kan(
     params: dict[str, Any]
 ) -> pd.DataFrame:
     """
-    Trains and evaluates the 4 KAN models specified in Liu et al. 2024.
+    Trains and evaluates the 4 KAN models specified in Liu et al. 2024 using jaxKAN.
     """
     target_col = params.get("target_col", "mass_excess")
     grid_size = params.get("grid_size", 30)
     epochs = params.get("epochs", 500)
     learning_rate = params.get("learning_rate", 0.01)
-    batch_size = params.get("batch_size", 64)
     model_suite = params.get("model_suite", {})
     
     results = []
@@ -64,43 +66,54 @@ def train_and_evaluate_kan(
         y_train_scaled = scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
         X_test_scaled = scaler_X.transform(X_test)
         
-        dataset = {
-            'train_input': torch.tensor(X_train_scaled, dtype=torch.float32),
-            'train_label': torch.tensor(y_train_scaled, dtype=torch.float32).unsqueeze(1),
-            'test_input': torch.tensor(X_test_scaled, dtype=torch.float32),
-            'test_label': torch.tensor(y_test, dtype=torch.float32).unsqueeze(1), # Not scaled for test eval yet
-        }
+        X_train_jnp = jnp.array(X_train_scaled, dtype=jnp.float32)
+        y_train_jnp = jnp.array(y_train_scaled, dtype=jnp.float32).reshape(-1, 1)
+        X_test_jnp = jnp.array(X_test_scaled, dtype=jnp.float32)
         
-        # Model definition [input_dim, 12, 1]
-        model = KAN(width=[len(features), 12, 1], grid=grid_size, k=3, seed=42)
-        
-        # Training
-        # pykan's train function expects dataset, opt, steps, etc.
-        def train_acc():
-            return torch.mean((model(dataset['train_input']) - dataset['train_label'])**2)
-        
-        def test_acc():
-            preds_scaled = model(dataset['test_input']).detach().numpy()
-            preds = scaler_y.inverse_transform(preds_scaled).flatten()
-            return np.mean((preds - y_test)**2)
-            
-        logging.info("Starting KAN training loop...")
-        results_hist = model.fit(
-            dataset, 
-            opt="LBFGS", 
-            steps=epochs, 
-            metrics=(train_acc, test_acc),
-            loss_fn=torch.nn.MSELoss()
+        # Initialize jaxKAN model
+        model = KAN(
+            layer_dims=[len(features), 12, 1], 
+            layer_type='Spline',
+            required_parameters={"G": grid_size, "k": 3}
         )
         
+        # Setup Optimizer (optax.adamw with cosine decay)
+        schedule = optax.cosine_decay_schedule(learning_rate, epochs)
+        optimizer = nnx.Optimizer(model, optax.adamw(schedule))
+        
+        @nnx.jit
+        def train_step(model, optimizer, x, y):
+            def loss_fn(model):
+                pred = model(x)
+                return jnp.mean((pred - y) ** 2)
+            
+            loss, grads = nnx.value_and_grad(loss_fn)(model)
+            optimizer.update(grads)
+            return loss
+
+        # Training Loop
+        logging.info("Starting KAN training loop...")
+        for epoch in range(epochs):
+            loss = train_step(model, optimizer, X_train_jnp, y_train_jnp)
+            if epoch % 500 == 0:
+                logging.info(f"Epoch {epoch}/{epochs} Loss: {loss:.4f}")
+        
+        # Ensure we block until the last loss is computed to avoid async exit issues
+        loss.block_until_ready()
+        
         # Final Evaluation
-        preds_scaled = model(dataset['test_input']).detach().numpy()
+        @nnx.jit
+        def predict(model, x):
+            return model(x)
+            
+        preds_scaled = np.array(predict(model, X_test_jnp))
         preds = scaler_y.inverse_transform(preds_scaled).flatten()
         
         res_df = test_df.copy()
         res_df["prediction"] = preds
         res_df["residual"] = res_df[target_col] - res_df["prediction"]
         res_df["model_name"] = model_name
+        res_df["framework"] = "jaxkan"
         
         results.append(res_df)
         

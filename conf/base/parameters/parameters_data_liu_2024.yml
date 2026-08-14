@@ -1,8 +1,8 @@
 liu_2024_training:
   target_col: "mass_excess"
   grid_size: 30
-  epochs: 500
-  learning_rate: 0.01
+  epochs: 2000
+  learning_rate: 0.05
   batch_size: 64 # Though we could do full-batch like the authors likely did, we'll parameterize it
   model_suite:
     KAN_2: ["n", "z"]
