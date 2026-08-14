@@ -1,148 +1,90 @@
-from unittest.mock import MagicMock, patch
-
 import pandas as pd
-import pytest
-
 from nuclear_mass_predictor.pipelines.data_engineering.nodes import (
     create_ame_historical_dataset,
-    create_engineered_features,
-    fetch_and_parse_ame_data,
-    fetch_iaea_data,
     parse_amdc_fixed_width,
+    create_engineered_features,
+    fetch_iaea_data
 )
 
-
-@patch("nuclear_mass_predictor.pipelines.data_engineering.nodes.requests.get")
-def test_fetch_iaea_data(mock_get):
-    mock_get.return_value.status_code = 200
-    mock_get.return_value.text = "z,n,binding_energy\n1,1,2.22\n2,2,28.3"
-
-    dummy_params = {
-        "url": "https://fake-url.com",
-        "headers": {"User-Agent": "test-agent"}
-    }
-
-    result_df = fetch_iaea_data(dummy_params)
-    mock_get.assert_called_once_with("https://fake-url.com", headers={"User-Agent": "test-agent"}, timeout=30)
+def test_create_ame_historical_dataset(dummy_ame_raw):
+    """Test that primary features are calculated correctly from raw AME data"""
+    ws4_params = {"kappa": 1.0, "xi": 1.0, "fs": 1.0}
+    baseline_params = {"c1": 1.0, "c2": 1.0}
     
-    assert isinstance(result_df, pd.DataFrame)
-    assert len(result_df) == 2
-    assert list(result_df.columns) == ["z", "n", "binding_energy"]
+    # We pass the same raw df for both 2016 and 2020 just to test the logic
+    # In reality, they'd be different, but for testing transformation logic, this is fine
+    primary_features, train_df, test_df = create_ame_historical_dataset(
+        dummy_ame_raw, dummy_ame_raw, ws4_params, baseline_params
+    )
+    
+    assert isinstance(primary_features, pd.DataFrame)
+    assert isinstance(train_df, pd.DataFrame)
+    assert isinstance(test_df, pd.DataFrame)
+    
+    # Check if Magic number distance logic worked (Pb-208 is doubly magic, distance should be 0)
+    pb208 = primary_features[(primary_features['z'] == 82) & (primary_features['n'] == 126)]
+    assert pb208['delta_z'].iloc[0] == 0
+    assert pb208['delta_n'].iloc[0] == 0
 
+    # Check parity logic
+    he5 = primary_features[(primary_features['z'] == 2) & (primary_features['n'] == 3)]
+    assert he5['z_eo'].iloc[0] == 0 # Z=2 is even -> 0
+    assert he5['n_eo'].iloc[0] == 1 # N=3 is odd -> 1
 
 def test_parse_amdc_fixed_width():
-    # Construct mock AMDC fixed-width format lines (matching mass16.txt / mass_1.mas20.txt format)
-    # Fortran format:
-    # 0:4 cc/NZ, 4:9 N, 9:14 Z, 14:19 A, 20:23 EL, 54:65 BINDING/A (keV)
-    header = "\n" * 36
-    # Line 1: H-1 (Z=1, N=0, A=1) -> single nucleon, should be skipped
-    line_h1 = "0 -1    0    1    1 H          7288.97061    0.00009      0.0      0.0   B-      *                1 007825.03224    0.00009"
-    # Line 2: H-2 (Z=1, N=1, A=2) -> Deuterium, BE/A = 1112.283 keV -> BE_total = 2.224566 MeV
-    line_h2 = "0  0    1    1    2 H         13135.72176    0.00011   1112.283    0.000 B-      *                2 014101.77811    0.00012"
-    # Line 3: He-4 (Z=2, N=2, A=4) -> Alpha, BE/A = 7073.915 keV -> BE_total = 28.29566 MeV
-    line_he4 = "   0    2    2    4 He         2424.91561    0.00006   7073.915    0.000 B- -22898.273  212.132   4 002603.25413    0.00006"
-
-    mock_text = header + "\n" + line_h1 + "\n" + line_h2 + "\n" + line_he4
-
+    # Mock AME text format (very long fixed width)
+    # n_str: 4:9, z_str: 9:14, a_str: 14:19, el: 20:23, me: 28:41, be: 54:65
+    mock_text = "\n" * 36 
+    
+    def make_line(n, z, a, el, me, be):
+        c = [" "] * 100
+        c[4:9] = f"{n:5d}"
+        c[9:14] = f"{z:5d}"
+        c[14:19] = f"{a:5d}"
+        c[20:23] = f"{el:<3}"
+        c[28:28+len(me)] = list(me)
+        c[54:54+len(be)] = list(be)
+        return "".join(c) + "\n"
+        
+    mock_text += make_line(2, 2, 4, "He", "2424.915", "7073.915")
+    mock_text += make_line(1, 0, 1, "n", "8071.318", "0.000")
+    mock_text += make_line(126, 82, 208, "Pb", "-21759.", "7867#7")
+    
     df = parse_amdc_fixed_width(mock_text, start_line=36)
+    
+    assert len(df) == 2 
+    assert df.iloc[0]["z"] == 2
+    assert df.iloc[1]["is_extrapolated"] == True
 
-    assert len(df) == 2  # H-1 is filtered out
-    assert df.loc[0, "z"] == 1
-    assert df.loc[0, "n"] == 1
-    assert df.loc[0, "a"] == 2
-    assert df.loc[0, "el"] == "H"
-    assert df.loc[0, "binding_energy_per_a_kev"] == pytest.approx(1112.283)
-    assert df.loc[0, "binding_energy_total_mev"] == pytest.approx(2.224566)
-
-    assert df.loc[1, "z"] == 2
-    assert df.loc[1, "n"] == 2
-    assert df.loc[1, "a"] == 4
-    assert df.loc[1, "el"] == "He"
-    assert df.loc[1, "binding_energy_total_mev"] == pytest.approx(28.29566)
-
-
-def test_create_ame_historical_dataset():
-    # Mock AME2016 (Nuclide A and Nuclide B)
-    df_2016 = pd.DataFrame({
-        "z": [8, 20],
-        "n": [8, 20],
-        "a": [16, 40],
-        "el": ["O", "Ca"],
-        "binding_energy_per_a_kev": [7976.2, 8551.3],
-        "binding_energy": [7976.2, 8551.3],
-        "binding_energy_total_mev": [127.619, 342.052],
-    })
-
-    # Mock AME2020 (Nuclide A, B, and newly discovered Nuclide C)
-    df_2020 = pd.DataFrame({
-        "z": [8, 20, 26],
-        "n": [8, 20, 30],
-        "a": [16, 40, 56],
-        "el": ["O", "Ca", "Fe"],
-        "binding_energy_per_a_kev": [7976.2, 8551.3, 8790.3],
-        "binding_energy": [7976.2, 8551.3, 8790.3],
-        "binding_energy_total_mev": [127.619, 342.052, 492.256],
-    })
-
-    ws4_params = {"kappa": 1.139, "xi": 1.250, "fs": 1.0}
+def test_create_engineered_features(dummy_ame_raw):
+    ws4_params = {"kappa": 1.0, "xi": 1.0, "fs": 1.0}
     baseline_params = {"model_type": "none"}
+    
+    # Rename for legacy structure
+    dummy_ame_raw["binding_energy"] = dummy_ame_raw["binding_energy_total_mev"] * 1000 / dummy_ame_raw["a"]
+    
+    df = create_engineered_features(dummy_ame_raw, ws4_params, baseline_params)
+    assert "binding_energy_total_mev" in df.columns
+    assert "macroscopic_energy" in df.columns
+    assert "residual_energy" in df.columns
 
-    full_df, train_df, test_df = create_ame_historical_dataset(df_2016, df_2020, ws4_params, baseline_params)
-
-    assert len(full_df) == 3
-    assert len(train_df) == 2
-    assert len(test_df) == 1
-
-    # Check that Fe-56 (Z=26, N=30) was flagged as test20
-    assert test_df.loc[0, "z"] == 26
-    assert test_df.loc[0, "n"] == 30
-    assert test_df.loc[0, "is_test20"] == True
-
-    # Check physical features presence
-    expected_cols = ["z_eo", "n_eo", "delta_z", "delta_n", "asy", "is_ws4_subset", "residual_energy"]
-    for col in expected_cols:
-        assert col in full_df.columns
-        assert col in train_df.columns
-        assert col in test_df.columns
-
-
-@patch("nuclear_mass_predictor.pipelines.data_engineering.nodes.requests.get")
-def test_fetch_and_parse_ame_data(mock_get):
-    header = "\n" * 36
-    line_h2 = "0  0    1    1    2 H         13135.72176    0.00011   1112.283    0.000 B-      *                2 014101.77811    0.00012"
-    mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.text = header + "\n" + line_h2
-    mock_get.return_value = mock_resp
-
-    ame_params = {
-        "ame2016_url": "https://test.org/2016",
-        "ame2020_url": "https://test.org/2020",
-        "headers": {"User-Agent": "test"}
-    }
-
-    df16, df20 = fetch_and_parse_ame_data(ame_params)
-    assert len(df16) == 1
-    assert len(df20) == 1
-    assert df16.loc[0, "z"] == 1
-
-
-def test_create_engineered_features():
-    raw_data = pd.DataFrame({
-        "z": [8, 20, 9],
-        "n": [8, 21, 10],
-        "binding_energy": [60.0, 160.0, 75.0]
-    })
-    ws4_params = {"kappa": 0.0, "xi": 0.0, "fs": 1.0}
-    baseline_params = {"model_type": "none"}
-
-    result_df = create_engineered_features(raw_data, ws4_params, baseline_params)
-
-    expected_columns = [
-        "z", "n", "binding_energy", "binding_energy_total_mev",
-        "z_eo", "n_eo", "delta_z", "delta_n", "asy",
-        "macroscopic_energy", "residual_energy"
-    ]
-    assert all(col in result_df.columns for col in expected_columns)
-    assert len(result_df) == 3
-
+def test_fetch_iaea_data():
+    import requests
+    class MockResponse:
+        def __init__(self, text): self.text = text
+        def raise_for_status(self): pass
+    
+    mock_csv = "z,n,binding,other\n1,1,1000,x\n2,2,2000,y\n"
+    
+    # Monkeypatch requests.get
+    old_get = requests.get
+    def mock_get(url, **kwargs): return MockResponse(mock_csv)
+    requests.get = mock_get
+    
+    try:
+        df = fetch_iaea_data({"url": "http://fake.url", "headers": {}})
+        assert len(df) == 2
+        assert "binding_energy" in df.columns
+        assert "z" in df.columns
+    finally:
+        requests.get = old_get

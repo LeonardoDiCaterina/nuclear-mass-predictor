@@ -22,7 +22,7 @@ dependencies = [
     "flax>=0.7.0",
     "optax>=0.1.7",
     # --- Liu et al. (2024): KAN for nuclear mass excess ---
-    "pykan>=0.2.0",
+    "jaxkan>=0.2.13",
     "tqdm>=4.66.0",
 ]
 

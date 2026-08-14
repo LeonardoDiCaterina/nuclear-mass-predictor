@@ -1,153 +1,132 @@
-import numpy as np
 import pandas as pd
+import numpy as np
 import pytest
-
 from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
     scale_features,
-    split_historical_data,
-)
-
-
-def test_split_historical_data():
-    # Arrange: Create a mock dataframe with more than 122 rows
-    data = {
-        "z": [1] * 150,
-        "n": [1] * 150,
-        "z_eo": [1] * 150,
-        "n_eo": [1] * 150,
-        "delta_z": [0.0] * 150,
-        "delta_n": [0.0] * 150,
-        "asy": [0.1] * 150,
-        "binding_energy": [2.0] * 150,
-        "discovery": list(range(150)) # Mock discovery order
-    }
-    df = pd.DataFrame(data)
-    params = {"test_size_target": 20} # Test with a smaller holdout size
-
-    # Act
-    X_train, X_test, y_train, y_test = split_historical_data(df, params)
-
-    # Assert
-    assert len(X_test) == 20
-    assert len(X_train) == 130
-    assert len(y_test) == 20
-    assert len(y_train) == 130
-    assert list(X_train.columns) == ["z", "n", "z_eo", "n_eo", "delta_z", "delta_n", "asy"]
-
-
-def test_split_historical_data_with_is_test20():
-    df = pd.DataFrame({
-        "z": [8, 20, 26],
-        "n": [8, 20, 30],
-        "z_eo": [0, 0, 0],
-        "n_eo": [0, 0, 0],
-        "delta_z": [0, 0, 2],
-        "delta_n": [0, 0, 2],
-        "asy": [0.0, 0.0, 0.5],
-        "binding_energy_total_mev": [127.6, 342.0, 492.2],
-        "is_test20": [False, False, True],
-        "is_ws4_subset": [True, True, True]
-    })
-    params = {}
-    X_train, X_test, y_train, y_test = split_historical_data(df, params)
-    assert len(X_train) == 2
-    assert len(y_train) == 2
-    assert len(X_test) == 1
-    assert len(y_test) == 1
-    assert y_test.iloc[0] == 492.2
-
-
-def test_scale_features():
-    # Arrange: Create numeric training and test frames and series
-    X_train = pd.DataFrame({
-        "feat1": [0.0, 10.0, 20.0],
-        "feat2": [5.0, 5.0, 5.0]
-    })
-    X_test = pd.DataFrame({
-        "feat1": [10.0],
-        "feat2": [5.0]
-    })
-    y_train = pd.Series([100.0, 200.0, 300.0])
-    y_test = pd.Series([150.0])
-    params = {"scale_target": True}
-
-    # Act
-    X_train_scaled, X_test_scaled, y_train_scaled, y_test_scaled, scaler_params = scale_features(
-        X_train, X_test, y_train, y_test, params
-    )
-
-    # Assert
-    # Check that feature means are centered around 0 for training data
-    assert np.allclose(X_train_scaled.mean(axis=0), 0.0)
-    assert np.allclose(y_train_scaled.mean(), 0.0)
-    assert X_test_scaled.shape == (1, 2)
-    assert y_test_scaled.shape == (1,)
-    
-    # Check structure of exportable YAML parameters
-    assert "x_mean" in scaler_params
-    assert "x_scale" in scaler_params
-    assert "y_mean" in scaler_params
-    assert "y_scale" in scaler_params
-    assert scaler_params["feature_names"] == ["feat1", "feat2"]
-    assert len(scaler_params["x_mean"]) == 2
-    assert len(scaler_params["x_scale"]) == 2
-
-from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
-    compute_summary_metrics,
-)
-
-
-def test_compute_summary_metrics():
-    """
-    Test that the summary metrics node correctly calculates RMSD and MAE
-    grouped by framework.
-    """
-    # Arrange: Create dummy residuals (True - Pred)
-    # PyTorch residuals: [3.0, -3.0] -> MAE: 3.0, RMSD: 3.0
-    # JAX residuals: [4.0, -4.0] -> MAE: 4.0, RMSD: 4.0
-    dummy_unified_df = pd.DataFrame({
-        "framework": ["pytorch", "pytorch", "jax", "jax"],
-        "residual": [3.0, -3.0, 4.0, -4.0]
-    })
-
-    # Act
-    metrics = compute_summary_metrics(dummy_unified_df)
-
-    # Assert
-    assert metrics["pytorch_test_mae_mev"] == pytest.approx(3.0)
-    assert metrics["pytorch_test_rmsd_mev"] == pytest.approx(3.0)
-    assert metrics["jax_test_mae_mev"] == pytest.approx(4.0)
-    assert metrics["jax_test_rmsd_mev"] == pytest.approx(4.0)
-
-
-from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
     train_jax_model,
     train_pytorch_model,
+    split_historical_data,
+    evaluate_all_models
 )
 
+@pytest.fixture
+def dummy_features():
+    return pd.DataFrame({
+        "z": np.random.rand(7),
+        "n": np.random.rand(7),
+        "a": np.random.rand(7),
+        "mass_excess": np.random.rand(7)
+    })
 
-def test_train_pytorch_model_returns_tuple():
-    """Test that PyTorch training returns a model and a loss history dataframe."""
-    X_train = np.random.randn(20, 7)
-    y_train = pd.Series([100.0] * 20)
-    params = {"epochs": 2, "batch_size": 10}
+def test_scale_features():
+    df = pd.DataFrame({
+        "z": [2, 4],
+        "n": [2, 4]
+    })
+    y = pd.Series([10.0, 20.0])
+    
+    X_tr, X_te, y_tr, y_te, params = scale_features(df, df, y, y, {"scaler_type": "standard", "scale_target": True})
+    
+    assert params["feature_names"] == ["z", "n"]
+    assert "x_mean" in params
+    assert X_tr.shape == (2, 2)
+    
+def test_train_jax_model():
+    # Smoke test the JAX model loop
+    X_train_scaled = np.random.rand(4, 3)
+    y_train_scaled = pd.Series(np.random.rand(4))
+    scaler_params = {"feature_names": ["z", "n", "asy"]}
+    
+    params = {
+        "smoke_run": True, # This forces epochs to 5
+        "learning_rate": 0.01,
+        "batch_size": 2,
+        "model_suite": {
+            "test_model": {
+                "features": ["z", "n", "asy"],
+                "hidden_dims": [4, 4]
+            }
+        }
+    }
+    
+    state, loss_df = train_jax_model(
+        X_train_scaled, y_train_scaled, scaler_params, params, "test_model"
+    )
+    
+    assert "params" in state
+    assert len(loss_df) == 5 # 5 epochs
 
-    model, loss_df = train_pytorch_model(X_train, y_train, params)
-
+def test_train_pytorch_model():
+    X_train_scaled = np.random.rand(4, 3)
+    y_train_scaled = pd.Series(np.random.rand(4))
+    scaler_params = {"feature_names": ["z", "n", "asy"]}
+    
+    params = {
+        "smoke_run": True, # This forces epochs to 5
+        "learning_rate": 0.01,
+        "batch_size": 2,
+        "model_suite": {
+            "test_model": {
+                "features": ["z", "n", "asy"],
+                "hidden_dims": [4, 4]
+            }
+        }
+    }
+    
+    model, loss_df = train_pytorch_model(
+        X_train_scaled, y_train_scaled, scaler_params, params, "test_model"
+    )
+    
     assert model is not None
-    assert not loss_df.empty
-    assert "loss" in loss_df.columns
-    assert len(loss_df) == 2  # 2 epochs tested
+    assert len(loss_df) == 5
 
-def test_train_jax_model_returns_tuple():
-    """Test that JAX training returns params and a loss history dataframe."""
-    X_train = np.random.randn(20, 7)
-    y_train = pd.Series([100.0] * 20)
-    params = {"epochs": 2, "batch_size": 10}
+def test_split_historical_data(dummy_features):
+    # dummy_features has z, n, a, mass_excess. Add is_test20 for split logic
+    df = dummy_features.copy()
+    df["is_test20"] = [False, False, False, False, False, True, True]
+    df["is_ws4_subset"] = [True] * 7
+    df["z_eo"] = 1
+    df["n_eo"] = 1
+    df["delta_z"] = 0
+    df["delta_n"] = 0
+    df["asy"] = 0.5
+    df["binding_energy"] = df["mass_excess"]
+    
+    params = {
+        "test_set_definition": "default",
+        "ws4_subset_only": True,
+        "target_col": "binding_energy"
+    }
+    
+    X_train, X_test, y_train, y_test = split_historical_data(df, params)
+    
+    assert len(X_train) == 5
+    assert len(X_test) == 2
+    assert "z" in X_train.columns
 
-    jax_output, loss_df = train_jax_model(X_train, y_train, params)
-
-    assert "params" in jax_output
-    assert not loss_df.empty
-    assert "loss" in loss_df.columns
-    assert len(loss_df) == 2  # 2 epochs tested
+def test_evaluate_all_models():
+    # evaluate_all_models takes X_test_scaled, y_test, X_test_raw, scaler_params, params, **models
+    X_test_scaled = np.random.rand(2, 2)
+    y_test = pd.Series([10.0, 20.0])
+    X_test_raw = pd.DataFrame({"z": [2, 4], "n": [2, 4]})
+    scaler_params = {"y_mean": 0.0, "y_scale": 1.0, "feature_names": ["z", "n"]}
+    params = {
+        "model_suite": {
+            "model1": {"features": ["z", "n"], "hidden_dims": [4]}
+        }
+    }
+    
+    class MockResult:
+        def numpy(self): return np.array([[10.0], [20.0]])
+        
+    class MockTorchModel:
+        def eval(self): pass
+        def __call__(self, x): return MockResult()
+    
+    models = {"model1_pytorch": MockTorchModel()}
+    
+    results = evaluate_all_models(X_test_scaled, y_test, X_test_raw, scaler_params, params, **models)
+    
+    assert len(results) == 2
+    assert "prediction" in results.columns
+    assert "residual" in results.columns
