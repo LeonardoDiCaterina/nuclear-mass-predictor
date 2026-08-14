@@ -160,3 +160,7 @@ venv.bak/
 
 # mlflow local runs
 mlruns/*
+
+# pykan cache
+model/
+
