@@ -58,6 +58,44 @@ kedro run --pipeline=liu_2024
 kedro run --pipeline=reporting
 ```
 
+## REST API Model Serving
+
+You can serve predictions using our built-in FastAPI model server:
+
+1. **Launch the server:**
+   ```bash
+   nuclear-mass-predictor-api
+   # Or directly:
+   uvicorn nuclear_mass_predictor.api.main:app --host 0.0.0.0 --port 8000
+   ```
+
+2. **Access Swagger Interactive API Docs:**
+   Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
+
+3. **Query a Prediction (GET endpoint):**
+   ```bash
+   curl -X GET "http://localhost:8000/predict/20/28"
+   ```
+   *Response:*
+   ```json
+   {
+     "z": 20,
+     "n": 28,
+     "a": 48,
+     "predicted_binding_energy_total_mev": 418.712,
+     "predicted_binding_energy_per_nucleon_mev": 8.7232,
+     "model_name": "ANN7",
+     "framework": "jax"
+   }
+   ```
+
+4. **Query Batch Predictions (POST endpoint):**
+   ```bash
+   curl -X POST "http://localhost:8000/predict" \
+        -H "Content-Type: application/json" \
+        -d '{"nuclei": [{"z": 20, "n": 28}, {"z": 82, "n": 126}]}'
+   ```
+
 ## Results & Conclusion
 
 The master reporting pipeline aggregates unified predictions from both paper-specific implementations to calculate global evaluation metrics (RMSD and MAE) on the promoted AME2020 test set.
