@@ -84,7 +84,14 @@ class ModelInferenceService:
 
         # Model evaluation via JAX
         input_jnp = jnp.array(scaled_features)
-        pred_scaled = self.model.apply({"params": self.model_params}, input_jnp)
+        if "params" in self.model_params and isinstance(self.model_params["params"], dict) and "params" in self.model_params["params"]:
+            vars_dict = self.model_params["params"]
+        elif "params" not in self.model_params:
+            vars_dict = {"params": self.model_params}
+        else:
+            vars_dict = self.model_params
+
+        pred_scaled = self.model.apply(vars_dict, input_jnp)
         pred_scaled_val = float(np.array(pred_scaled).flatten()[0])
 
         # Unscale target if target was scaled during training
