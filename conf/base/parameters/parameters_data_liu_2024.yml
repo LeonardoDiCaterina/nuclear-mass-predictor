@@ -1,9 +1,9 @@
 liu_2024_training:
   target_col: "mass_excess"
-  grid_size: 30
-  epochs: 2000
-  learning_rate: 0.05
-  batch_size: 64 # Though we could do full-batch like the authors likely did, we'll parameterize it
+  grid_size: 20
+  epochs: 10000
+  learning_rate: 0.01
+  batch_size: 64
   model_suite:
     KAN_2: ["n", "z"]
     KAN_4: ["n", "z", "a", "isospin_asym_absolute"]  

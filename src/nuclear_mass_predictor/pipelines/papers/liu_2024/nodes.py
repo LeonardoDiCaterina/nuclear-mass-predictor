@@ -1,6 +1,7 @@
 import logging
 from typing import Any
 
+import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
@@ -72,34 +73,41 @@ def train_and_evaluate_kan(
         
         # Initialize jaxKAN model
         model = KAN(
-            layer_dims=[len(features), 12, 1], 
+            layer_dims=[len(features), 16, 1], 
             layer_type='Spline',
             required_parameters={"G": grid_size, "k": 3}
         )
         
         # Setup Optimizer (optax.adamw with cosine decay)
-        schedule = optax.cosine_decay_schedule(learning_rate, epochs)
-        optimizer = nnx.Optimizer(model, optax.adamw(schedule))
-        
-        @nnx.jit
-        def train_step(model, optimizer, x, y):
-            def loss_fn(model):
-                pred = model(x)
-                return jnp.mean((pred - y) ** 2)
-            
-            loss, grads = nnx.value_and_grad(loss_fn)(model)
-            optimizer.update(grads)
-            return loss
+        schedule = optax.cosine_decay_schedule(learning_rate, epochs, alpha=1e-2)
+        optimizer = nnx.Optimizer(model, optax.adamw(schedule, weight_decay=1e-4))
 
-        # Training Loop
-        logger.info("Starting KAN training loop...")
-        for epoch in range(epochs):
-            loss = train_step(model, optimizer, X_train_jnp, y_train_jnp)
-            if epoch % 500 == 0:
-                logger.info(f"Epoch {epoch}/{epochs} Loss: {loss:.4f}")
-        
-        # Ensure we block until the last loss is computed to avoid async exit issues
-        loss.block_until_ready()
+        graphdef, state = nnx.split((model, optimizer))
+
+        @jax.jit
+        def train_scan(state, x, y):
+            def step(state, _):
+                model_inst, opt_inst = nnx.merge(graphdef, state)
+
+                def loss_fn(m):
+                    pred = m(x)
+                    return jnp.mean((pred - y) ** 2)
+
+                loss, grads = nnx.value_and_grad(loss_fn)(model_inst)
+                opt_inst.update(grads)
+                _, new_state = nnx.split((model_inst, opt_inst))
+                return new_state, loss
+
+            final_state, losses = jax.lax.scan(step, state, None, length=epochs)
+            return final_state, losses
+
+        # Execute JAX scan over all epochs
+        logger.info(f"Executing JAX scan over {epochs} epochs for {model_name}...")
+        final_state, losses = train_scan(state, X_train_jnp, y_train_jnp)
+        losses.block_until_ready()
+        model, _ = nnx.merge(graphdef, final_state)
+        final_loss = float(losses[-1])
+        logger.info(f"{model_name} Final Loss: {final_loss:.6f}")
         
         # Final Evaluation
         @nnx.jit

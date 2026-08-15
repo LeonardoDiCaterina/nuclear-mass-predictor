@@ -103,11 +103,11 @@ The master reporting pipeline aggregates unified predictions from both paper-spe
 | Model (Features) | Framework | Test RMSD (MeV) | Test MAE (MeV) |
 | :--- | :--- | :--- | :--- |
 | **ANN7 (Z, N, Z_eo, N_eo, dZ, dN, Asy)** | **JAX** | **0.633** | **0.358** |
-| ANN7 (Z, N, Z_eo, N_eo, dZ, dN, Asy) | PyTorch | 0.928 | 0.516 |
-| KAN_2 (Z, N) | jaxkan | 9.124 | 4.996 |
-| KAN_11 (11 features) | jaxkan | 10.149 | 7.603 |
-| KAN_4 (Z, N, Z_eo, N_eo) | jaxkan | 14.824 | 10.314 |
-| KAN_9 (9 features) | jaxkan | 16.186 | 12.129 |
+| ANN7 (Z, N, Z_eo, N_eo, dZ, dN, Asy) | PyTorch | 0.878 | 0.470 |
+| **KAN_2 (Z, N)** | **jaxkan** | **4.973** | **2.762** |
+| **KAN_4 (Z, N, A, Asy)** | **jaxkan** | **5.640** | **3.762** |
+| KAN_11 (11 features) | jaxkan | 13.640 | 10.303 |
+| KAN_9 (9 features) | jaxkan | 26.320 | 20.491 |
 
 ### Takeaways
 1. **ANN Dominance**: The ANNs (specifically the JAX implementation) are outperforming the KAN models right now, hitting an impressive RMSD of ~0.63 MeV.
