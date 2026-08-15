@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock, patch
-from fastapi.testclient import TestClient
+from unittest.mock import patch
+
 import pytest
+from fastapi.testclient import TestClient
 
 from nuclear_mass_predictor.api.main import app, inference_service
 

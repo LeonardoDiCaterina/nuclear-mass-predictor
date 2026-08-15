@@ -1,8 +1,9 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
 from scipy import stats
-import numpy as np
+
 
 def concat_unified_predictions(*preds: pd.DataFrame) -> pd.DataFrame:
     """Concatenate unified predictions from all paper pipelines."""

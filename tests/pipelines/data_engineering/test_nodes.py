@@ -1,10 +1,12 @@
 import pandas as pd
+
 from nuclear_mass_predictor.pipelines.data_engineering.nodes import (
     create_ame_historical_dataset,
-    parse_amdc_fixed_width,
     create_engineered_features,
-    fetch_iaea_data
+    fetch_iaea_data,
+    parse_amdc_fixed_width,
 )
+
 
 def test_create_ame_historical_dataset(dummy_ame_raw):
     """Test that primary features are calculated correctly from raw AME data"""

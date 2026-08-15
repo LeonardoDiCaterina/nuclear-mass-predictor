@@ -1,9 +1,9 @@
-import os
+from __future__ import annotations
+
 import pickle
 from pathlib import Path
 from typing import Any
 
-import jax
 import jax.numpy as jnp
 import numpy as np
 import yaml
@@ -74,6 +74,10 @@ class ModelInferenceService:
         """
         if not self.is_loaded or self.model is None or self.model_params is None or self.scaler_params is None:
             self.load_model()
+
+        assert self.model is not None
+        assert self.model_params is not None
+        assert self.scaler_params is not None
 
         raw_features = np.array([self.extract_features(z, n)], dtype=np.float32)
 

@@ -1,13 +1,15 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import pytest
+
 from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
+    evaluate_all_models,
     scale_features,
+    split_historical_data,
     train_jax_model,
     train_pytorch_model,
-    split_historical_data,
-    evaluate_all_models
 )
+
 
 @pytest.fixture
 def dummy_features():
@@ -25,7 +27,7 @@ def test_scale_features():
     })
     y = pd.Series([10.0, 20.0])
     
-    X_tr, X_te, y_tr, y_te, params = scale_features(df, df, y, y, {"scaler_type": "standard", "scale_target": True})
+    X_tr, _X_te, _y_tr, _y_te, params = scale_features(df, df, y, y, {"scaler_type": "standard", "scale_target": True})
     
     assert params["feature_names"] == ["z", "n"]
     assert "x_mean" in params
@@ -98,7 +100,7 @@ def test_split_historical_data(dummy_features):
         "target_col": "binding_energy"
     }
     
-    X_train, X_test, y_train, y_test = split_historical_data(df, params)
+    X_train, X_test, _y_train, _y_test = split_historical_data(df, params)
     
     assert len(X_train) == 5
     assert len(X_test) == 2

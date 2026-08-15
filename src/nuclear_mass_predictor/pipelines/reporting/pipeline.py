@@ -1,12 +1,13 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
+    compare_models_metrics,
+    concat_unified_predictions,
     create_loss_curves_plot,
     create_residual_plots,
     test_heteroscedasticity,
-    concat_unified_predictions,
-    compare_models_metrics,
 )
+
 
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(

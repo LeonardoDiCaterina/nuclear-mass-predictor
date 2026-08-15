@@ -1,12 +1,11 @@
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI, HTTPException, Path, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from nuclear_mass_predictor.api.schemas import (
     HealthResponse,
-    NuclearInput,
     PredictionRequest,
     PredictionResponse,
     PredictionResult,
@@ -22,7 +21,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Lifespan event handler to load trained model artifacts on API startup."""
     try:
         inference_service.load_model()
-    except Exception as e:
+    except (FileNotFoundError, RuntimeError, ValueError) as e:
         print(f"Warning: Could not pre-load model on startup: {e}")
     yield
 
@@ -61,7 +60,7 @@ async def health_check() -> HealthResponse:
     if not inference_service.is_loaded:
         try:
             inference_service.load_model()
-        except Exception:
+        except (FileNotFoundError, RuntimeError, ValueError):
             return HealthResponse(
                 status="unhealthy",
                 model_name="ANN7",
@@ -104,7 +103,7 @@ async def predict_nuclei(request: PredictionRequest) -> PredictionResponse:
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=str(fnf_err),
             )
-        except Exception as err:
+        except (RuntimeError, ValueError) as err:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Inference error for nucleus Z={item.z}, N={item.n}: {err}",
@@ -138,7 +137,7 @@ async def predict_single_path(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(fnf_err),
         )
-    except Exception as err:
+    except (RuntimeError, ValueError) as err:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Inference error for nucleus Z={z}, N={n}: {err}",

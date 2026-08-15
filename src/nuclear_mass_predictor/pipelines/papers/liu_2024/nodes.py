@@ -1,16 +1,16 @@
 import logging
 from typing import Any
 
+import jax.numpy as jnp
 import numpy as np
+import optax
 import pandas as pd
-from sklearn.model_selection import KFold
+from flax import nnx
+from jaxkan.KAN import KAN
 from sklearn.preprocessing import StandardScaler
 
-import jax
-import jax.numpy as jnp
-from flax import nnx
-import optax
-from jaxkan.KAN import KAN
+logger = logging.getLogger(__name__)
+
 
 def split_data_for_kan(
     df: pd.DataFrame, 
@@ -50,13 +50,13 @@ def train_and_evaluate_kan(
     results = []
     
     for model_name, features in model_suite.items():
-        logging.info(f"Training {model_name} with features: {features}")
+        logger.info(f"Training {model_name} with features: {features}")
         
         # Data preparation
         X_train = train_df[features].values
         y_train = train_df[target_col].values
         X_test = test_df[features].values
-        y_test = test_df[target_col].values
+        _y_test = test_df[target_col].values
         
         # Scaling
         scaler_X = StandardScaler()
@@ -92,11 +92,11 @@ def train_and_evaluate_kan(
             return loss
 
         # Training Loop
-        logging.info("Starting KAN training loop...")
+        logger.info("Starting KAN training loop...")
         for epoch in range(epochs):
             loss = train_step(model, optimizer, X_train_jnp, y_train_jnp)
             if epoch % 500 == 0:
-                logging.info(f"Epoch {epoch}/{epochs} Loss: {loss:.4f}")
+                logger.info(f"Epoch {epoch}/{epochs} Loss: {loss:.4f}")
         
         # Ensure we block until the last loss is computed to avoid async exit issues
         loss.block_until_ready()

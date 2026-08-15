@@ -62,3 +62,9 @@ namespaces = false
 
 [tool.kedro_telemetry]
 project_id = "ea161c2167d14009b9ac7d2f9c3e066f"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_return_any = false
+warn_unused_configs = true

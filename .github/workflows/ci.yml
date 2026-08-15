@@ -1,0 +1,55 @@
+name: Continuous Integration & Quality Assurance
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-and-lint:
+    name: Test & Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e ".[dev]"
+          pip install -r requirements.txt
+
+      - name: Run Ruff Linter
+        run: |
+          ruff check .
+
+      - name: Run Mypy Type Checker
+        run: |
+          mypy src/
+
+      - name: Run Pytest with Dynamic Test Coverage
+        run: |
+          pytest --cov=src/nuclear_mass_predictor --cov-fail-under=80
+
+      - name: Generate Dynamic Coverage Badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          pip install coverage-badge
+          coverage-badge -f -o coverage.svg
+
+      - name: Commit Updated Coverage Badge
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add coverage.svg || true
+          git commit -m "chore(ci): update coverage badge [skip ci]" || echo "No coverage badge changes"
+          git push || echo "No push required"

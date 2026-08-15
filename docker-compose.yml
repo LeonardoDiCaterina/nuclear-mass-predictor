@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nuclear_mass_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - PORT=8000
+    restart: unless-stopped
+    command: ["nuclear-mass-predictor-api"]
+
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nuclear_mass_pipeline
+    volumes:
+      - ./data:/app/data
+      - ./conf:/app/conf
+    command: ["kedro", "run", "--pipeline", "reporting"]
+    profiles:
+      - pipeline

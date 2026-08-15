@@ -3,14 +3,14 @@ from kedro.pipeline import Pipeline
 from nuclear_mass_predictor.pipelines.data_engineering.pipeline import (
     create_pipeline as de_pipeline,
 )
+from nuclear_mass_predictor.pipelines.papers.liu_2024.pipeline import (
+    create_pipeline as liu_2024_pipeline,
+)
 from nuclear_mass_predictor.pipelines.papers.zeng_2022.pipeline import (
     create_pipeline as zeng_2022_pipeline,
 )
 from nuclear_mass_predictor.pipelines.reporting.pipeline import (
     create_pipeline as reporting,
-)
-from nuclear_mass_predictor.pipelines.papers.liu_2024.pipeline import (
-    create_pipeline as liu_2024_pipeline,
 )
 
 

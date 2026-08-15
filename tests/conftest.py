@@ -1,6 +1,6 @@
-import pytest
 import pandas as pd
-import numpy as np
+import pytest
+
 
 @pytest.fixture
 def dummy_ame_raw():

@@ -33,6 +33,8 @@ def calculate_shell_index(number: int) -> int:
     if number <= 82: return 3
     if number <= 126: return 4
     return 5
+    # actually you could just return the index of themagic number shufted by one in the array
+    # to have it match the shell gaps
 
 def calculate_asy(z: int, n: int, kappa: float, xi: float, fs: float) -> float:
     """

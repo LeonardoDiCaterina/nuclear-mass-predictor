@@ -1,7 +1,10 @@
 import pandas as pd
-import numpy as np
-import pytest
-from nuclear_mass_predictor.pipelines.papers.liu_2024.nodes import split_data_for_kan, train_and_evaluate_kan
+
+from nuclear_mass_predictor.pipelines.papers.liu_2024.nodes import (
+    split_data_for_kan,
+    train_and_evaluate_kan,
+)
+
 
 def test_split_data_for_kan(dummy_features):
     params = {

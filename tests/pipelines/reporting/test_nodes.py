@@ -1,11 +1,17 @@
 import pandas as pd
 from matplotlib import pyplot as plt
-from nuclear_mass_predictor.pipelines.reporting.nodes import (
-    create_residual_plots,
-    test_heteroscedasticity as compute_heteroscedasticity,
-    create_loss_curves_plot,
+
+from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import (
+    compute_summary_metrics,
 )
-from nuclear_mass_predictor.pipelines.papers.zeng_2022.nodes import compute_summary_metrics
+from nuclear_mass_predictor.pipelines.reporting.nodes import (
+    create_loss_curves_plot,
+    create_residual_plots,
+)
+from nuclear_mass_predictor.pipelines.reporting.nodes import (
+    test_heteroscedasticity as compute_heteroscedasticity,
+)
+
 
 def test_compute_summary_metrics():
     df = pd.DataFrame({

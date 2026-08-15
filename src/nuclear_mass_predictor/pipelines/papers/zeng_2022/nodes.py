@@ -73,14 +73,14 @@ def scale_features(
     if scale_target:
         if scaler_type == "minmax":
             y_scaler = MinMaxScaler()
-            y_train_scaled = y_scaler.fit_transform(y_train.values.reshape(-1, 1)).ravel()
-            y_test_scaled = y_scaler.transform(y_test.values.reshape(-1, 1)).ravel()
+            y_train_scaled = y_scaler.fit_transform(np.asarray(y_train.values).reshape(-1, 1)).ravel()
+            y_test_scaled = y_scaler.transform(np.asarray(y_test.values).reshape(-1, 1)).ravel()
             y_mean = float(y_scaler.data_min_[0])
             y_scale = float(y_scaler.data_range_[0])
         else:
             y_scaler = StandardScaler()
-            y_train_scaled = y_scaler.fit_transform(y_train.values.reshape(-1, 1)).ravel()
-            y_test_scaled = y_scaler.transform(y_test.values.reshape(-1, 1)).ravel()
+            y_train_scaled = y_scaler.fit_transform(np.asarray(y_train.values).reshape(-1, 1)).ravel()
+            y_test_scaled = y_scaler.transform(np.asarray(y_test.values).reshape(-1, 1)).ravel()
             y_mean = float(y_scaler.mean_[0])
             y_scale = float(y_scaler.scale_[0])
     else:
@@ -311,7 +311,7 @@ def evaluate_all_models(
         elif framework == "jax":
             hidden_dims = params["model_suite"][model_name]["hidden_dims"]
             jax_model = jax_DynamicNuclearANN(hidden_dims=hidden_dims)
-            preds_scaled = jax_model.apply(model_obj, jnp.array(X_test_scaled_filtered)).flatten()
+            preds_scaled = np.array(jax_model.apply(model_obj, jnp.array(X_test_scaled_filtered))).flatten()
             
         preds = (preds_scaled * y_scale) + y_mean
         
