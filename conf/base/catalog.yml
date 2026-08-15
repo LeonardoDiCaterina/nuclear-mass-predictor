@@ -45,7 +45,7 @@ zeng_2022.y_test:
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/zeng_2022/y_test.parquet
 
-zeng_2022.scaler_params:
+scaler_params:
   type: yaml.YAMLDataset
   filepath: data/06_models/zeng_2022/scaler_params.yml
 
